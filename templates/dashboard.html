@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Microrrede · Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+    <link rel="preconnect" href="https://cdn.plot.ly" crossorigin>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="/static/styles.css"/>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span> Microrrede</div>
+      <div class="row">
+        <div class="badge live" id="live-dot">AO VIVO</div>
+        <div class="badge">MAE: <strong><span id="mae">-</span></strong> kW</div>
+        <select id="source" class="select">
+          <option value="live">Ao vivo</option>
+          <option value="db">Banco (SQLite)</option>
+          <option value="csv">CSV Sintético</option>
+          <option value="sim">Simulação</option>
+        </select>
+        <select id="algo" class="select" title="Algoritmo de previsão">
+          <option value="rf" selected>Random Forest</option>
+          <option value="linear">Linear Regression</option>
+          <option value="ridge">Ridge</option>
+          <option value="lasso">Lasso</option>
+        </select>
+        <select id="mode" class="select" title="Modo de operação">
+          <option value="normal" selected>Gasto normal</option>
+          <option value="economico">Econômico</option>
+          <option value="conforto">Conforto</option>
+        </select>
+        <input id="goal" class="input" placeholder="Ex.: quero economizar 200 reais por mês" style="min-width: 320px;"/>
+        <div class="row" style="gap:8px; align-items:center;">
+          <span class="meta">SOC mínimo</span>
+          <input type="range" min="0" max="80" step="5" value="0" id="soc_min"/>
+          <span class="badge" id="soc_min_label">0%</span>
+        </div>
+        <div id="sim_controls" class="sim-ctl" style="display:none;">
+          <span class="meta">Carga</span>
+          <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor"/>
+          <span class="badge" id="sim_factor_label">1.00x</span>
+          <span class="meta" style="margin-left:8px;">PV</span>
+          <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="sim_pv"/>
+          <span class="badge" id="sim_pv_label">1.0x</span>
+          <span class="meta" style="margin-left:8px;">Bateria</span>
+          <input type="range" min="0" max="5" step="0.5" value="2.0" id="sim_batt"/>
+          <span class="badge" id="sim_batt_label">2.0 kW</span>
+          <span class="meta" style="margin-left:8px;">SOC</span>
+          <input type="range" min="0" max="100" step="5" value="50" id="sim_soc"/>
+          <span class="badge" id="sim_soc_label">50%</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell layout">
+      <section class="main-col">
+        <h1>Monitoramento e Previsão</h1>
+        <p class="subtitle">Consumo recente, previsão 24h e estado simplificado da microrrede. Atualização contínua.</p>
+
+  <section class="grid two">
+          <article class="card">
+            <div class="row" style="justify-content: space-between;">
+              <div class="meta">Consumo · últimos 7 dias</div>
+              <small class="meta" id="last-updated">—</small>
+            </div>
+            <div id="consumption_plot" class="plot"></div>
+            <p class="footer-note">Interpretação: oscilações refletem padrões diários/semanais de carga e variações de temperatura.</p>
+          </article>
+
+          <article class="card">
+            <div class="header-row">
+              <div class="meta">Previsão de consumo para as próximas 24h</div>
+              <div class="row" style="gap:6px; align-items: center;">
+                <span class="badge ml" id="algo_badge" title="Algoritmo de previsão">RandomForest</span>
+                <span class="badge ml" title="Treinado com scikit-learn 1.1.3">scikit-learn</span>
+                <span class="info-ml" title="Prevemos a demanda usando histórico recente e temperatura. A faixa azul mostra a incerteza (quanto mais larga, menos certeza).">ⓘ</span>
+              </div>
+            </div>
+            <div id="forecast_plot" class="plot"></div>
+            <p class="footer-note">Interpretação: projeção baseada em lags de consumo + hora/dia/temperatura.</p>
+          </article>
+        </section>
+
+  <section class="grid two">
+          <article class="card">
+            <div class="meta">Temperatura · últimos 7 dias</div>
+            <div id="temperature_plot" class="plot"></div>
+            <p class="footer-note">Interpretação: auxilia na compreensão de sazonalidade térmica e impacto em carga.</p>
+          </article>
+
+          <article class="card">
+            <div class="meta">Microrrede · estado atual</div>
+            <div class="equip">
+              <div class="equip-flow">
+                <div class="equip-node pv"><span>PV</span><strong id="pv_kw">0</strong> kW</div>
+                <div class="equip-node load"><span>Carga</span><strong id="load_kw">0</strong> kW</div>
+                <div class="equip-node grid"><span>Rede</span><strong id="grid_kw">0</strong> kW</div>
+                <div class="equip-node batt">
+                  <span>Bateria</span>
+                  <strong id="battery_kw">0</strong> kW
+                  <div class="batt-soc"><div id="battery_soc_bar" style="width:50%"></div></div>
+                  <small id="battery_soc_label">50%</small>
+                </div>
+              </div>
+            </div>
+            <p class="footer-note">Interpretação: fluxos estimados (PV→Carga/Bateria, Rede→Carga). SOC indica nível da bateria.</p>
+          </article>
+        </section>
+
+  <section class="grid">
+          <article class="card">
+            <div class="row" style="justify-content: space-between; align-items: baseline;">
+              <div class="meta">Agregações diárias</div>
+              <div class="kpis">
+                <div class="kpi"><span>Atual</span><strong id="kpi_current">—</strong><small>kW</small></div>
+                <div class="kpi"><span>Média 24h</span><strong id="kpi_avg">—</strong><small>kW</small></div>
+                <div class="kpi"><span>Pico 24h</span><strong id="kpi_peak">—</strong><small>kW</small></div>
+                <div class="kpi"><span>Temp</span><strong id="kpi_temp">—</strong><small>°C</small></div>
+              </div>
+            </div>
+            <div id="daily_plot" class="plot" style="height: 300px"></div>
+            <p class="footer-note">Interpretação: tendências médias e picos ajudam a identificar cargas críticas e períodos de maior consumo.</p>
+          </article>
+        </section>
+
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <p class="footer-note" style="margin:0;">Atualiza a cada 15s. Fonte: <span id="source-label">db</span>.</p>
+          <a class="badge" id="export_link" href="#" target="_blank">Exportar CSV (7d)</a>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="context-cubes">
+          <div class="cube"><div class="cube-title">Contexto</div><div class="cube-body" id="ctx_main">—</div></div>
+          <div class="cube"><div class="cube-title">Carga</div><div class="cube-body" id="ctx_load">—</div></div>
+          <div class="cube"><div class="cube-title">Solar</div><div class="cube-body" id="ctx_pv">—</div></div>
+          <div class="cube"><div class="cube-title">Bateria</div><div class="cube-body" id="ctx_batt">—</div></div>
+          <div class="cube"><div class="cube-title">Rede</div><div class="cube-body" id="ctx_grid">—</div></div>
+          <div class="cube"><div class="cube-title">Clima</div><div class="cube-body" id="ctx_temp">—</div></div>
+          <div class="cube"><div class="cube-title">Custo</div><div class="cube-body" id="ctx_cost">—</div></div>
+        </div>
+        <article class="card" style="margin-top: var(--gap-lg);">
+          <div class="meta">Alertas</div>
+          <div id="alerts" style="display:grid; gap:8px; margin-top:10px;"></div>
+        </article>
+        <article class="card" style="margin-top: var(--gap-lg);">
+          <div class="row" style="justify-content: space-between; align-items: center;">
+            <div class="meta">Preços</div>
+            <div class="kpi"><span>Hoje</span><strong id="price_today">—</strong><small>R$</small></div>
+          </div>
+          <div class="footer-note">Últ.24h: <span id="price_last24">—</span> R$ · 24h próximos: <span id="price_next24">—</span> R$</div>
+          <div class="opt-plan" id="price_breakdown" style="display:grid; gap:6px; margin-top:10px; font-size: 12px;"></div>
+        </article>
+        <article class="card" style="margin-top: var(--gap-lg);">
+          <div class="row" style="justify-content: space-between; align-items: center;">
+            <div class="meta">Otimização (modo <span id="mode_label">normal</span>)</div>
+            <div class="kpi"><span>Economia</span><strong id="opt_savings">—</strong><small>R$</small></div>
+          </div>
+          <div class="footer-note">Objetivo: <span id="goal_label">—</span> · Baseline: <span id="opt_base">—</span> R$ · Otimizado: <span id="opt_opt">—</span> R$</div>
+          <div class="footer-note" id="goal_status">—</div>
+          <div class="opt-plan" id="opt_plan" style="display:grid; gap:6px; margin-top:10px;"></div>
+        </article>
+      </aside>
+    </main>
+
+    <script>
+      const opts = { displayModeBar: false, responsive: true };
+      function themeFont(){
+        return { color: getComputedStyle(document.documentElement).getPropertyValue('--text').trim() };
+      }
+
+      let evt = null;
+      function closeStream(){ if (evt) { evt.close(); evt = null; } }
+
+      async function fetchDashboard(){
+  const sourceSel = document.getElementById('source');
+  const algoSel = document.getElementById('algo');
+  const modeSel = document.getElementById('mode');
+  const goalInp = document.getElementById('goal');
+  const socMin = document.getElementById('soc_min');
+        const source = sourceSel.value;
+        const params = new URLSearchParams();
+        params.set('source', source);
+  if (algoSel) params.set('algo', algoSel.value);
+  if (modeSel) params.set('mode', modeSel.value);
+  if (goalInp && goalInp.value) params.set('goal', goalInp.value);
+  if (socMin) params.set('soc_min', socMin.value);
+        if (source === 'sim') {
+          const f = document.getElementById('sim_factor');
+          const pv = document.getElementById('sim_pv');
+          const bl = document.getElementById('sim_batt');
+          const soc = document.getElementById('sim_soc');
+          if (f) params.set('factor', String(f.value));
+          if (pv) params.set('pv_factor', String(pv.value));
+          if (bl) params.set('batt_limit', String(bl.value));
+          if (soc) params.set('soc_init', String(soc.value));
+        }
+        const res = await fetch(`/api/dashboard?${params.toString()}`);
+        const j = await res.json();
+        document.getElementById('mae').innerText = j.metrics.mae_test.toFixed(3);
+        const algoBadge = document.getElementById('algo_badge');
+        if (algoBadge) {
+          algoBadge.innerText = (j.algo === 'linear') ? 'LinearReg' : 'RandomForest';
+          algoBadge.title = (j.algo === 'linear') ? 'Linear Regression' : 'Random Forest Regressor';
+        }
+        const modeLbl = document.getElementById('mode_label');
+        if (modeLbl && j.mode) modeLbl.innerText = j.mode;
+        const goalLbl = document.getElementById('goal_label');
+        if (goalLbl) {
+          if (j.goal && j.goal.daily_target != null) {
+            goalLbl.innerText = `R$ ${j.goal.daily_target.toFixed(2)} / dia`;
+          } else {
+            goalLbl.innerText = '—';
+          }
+        }
+        // Pricing card
+        if (j.costs) {
+          const today = document.getElementById('price_today');
+          const last24 = document.getElementById('price_last24');
+          const next24 = document.getElementById('price_next24');
+          if (today && j.costs.today_cost!=null) today.innerText = j.costs.today_cost.toFixed(2);
+          if (last24 && j.costs.last24_cost!=null) last24.innerText = j.costs.last24_cost.toFixed(2);
+          if (next24 && j.costs.forecast_cost_24h!=null) next24.innerText = j.costs.forecast_cost_24h.toFixed(2);
+          const pb = document.getElementById('price_breakdown');
+          if (pb) {
+            pb.innerHTML = '';
+            const b = j.costs.by_period || {};
+            const fb = j.costs.forecast_by_period || {};
+            const mk = (label, cur, fut) => `<div class="row" style="justify-content: space-between;"><span>${label}</span><span>Últ.24h: R$ ${(cur||0).toFixed(2)} · Próx.24h: R$ ${(fut||0).toFixed(2)}</span></div>`;
+            pb.insertAdjacentHTML('beforeend', mk('Off-peak', b.off, fb.off));
+            pb.insertAdjacentHTML('beforeend', mk('Intermediário', b.mid, fb.mid));
+            pb.insertAdjacentHTML('beforeend', mk('Ponta (pico)', b.peak, fb.peak));
+          }
+        }
+        document.getElementById('source-label').innerText = j.source;
+        document.getElementById('last-updated').innerText = new Date(j.kpis.last_updated).toLocaleString();
+
+        const consumptionData = j.consumption.data.slice();
+        if (j.consumption.anomalies && j.consumption.anomalies.length) {
+          consumptionData.push({ x: j.consumption.anomalies.map(a=>a.x), y: j.consumption.anomalies.map(a=>a.y), text: j.consumption.anomalies.map(a=>a.text||''), mode: 'markers', type: 'scatter', name: 'Anomalias', marker: { color: '#ef4444', size: 8, symbol: 'x' }, hovertemplate: '%{text}<br>%{x}<br>%{y:.2f} kW' });
+        }
+        Plotly.newPlot('consumption_plot', consumptionData, {
+          ...j.consumption.layout,
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: themeFont(),
+          margin: { t: 40, r: 12, b: 40, l: 50 }
+        }, opts);
+
+        Plotly.newPlot('forecast_plot', j.forecast.data, {
+          ...j.forecast.layout,
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: themeFont(),
+          margin: { t: 40, r: 12, b: 40, l: 50 },
+          barmode: 'group'
+        }, opts);
+
+        Plotly.newPlot('temperature_plot', j.temperature.data, {
+          ...j.temperature.layout,
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: themeFont(),
+          margin: { t: 40, r: 12, b: 40, l: 50 }
+        }, opts);
+
+        const dailyData = [
+          { x: j.daily.x, y: j.daily.y_mean, type: 'scatter', name: 'Média' },
+          { x: j.daily.x, y: j.daily.y_max, type: 'bar', name: 'Pico' },
+        ];
+        Plotly.newPlot('daily_plot', dailyData, {
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: themeFont(),
+          margin: { t: 30, r: 12, b: 40, l: 50 },
+          barmode: 'overlay'
+        }, opts);
+
+        // KPIs
+        const fmt = (v, d=2) => (v == null ? '—' : Number(v).toFixed(d));
+        document.getElementById('kpi_current').innerText = fmt(j.kpis.current_load_kw, 2);
+        document.getElementById('kpi_avg').innerText = fmt(j.kpis.avg_24h_kw, 2);
+        document.getElementById('kpi_peak').innerText = fmt(j.kpis.peak_24h_kw, 2);
+        document.getElementById('kpi_temp').innerText = fmt(j.kpis.current_temp_c, 1);
+
+        // Equipment state
+        document.getElementById('pv_kw').innerText = fmt(j.equipment.pv_kw, 2);
+        document.getElementById('load_kw').innerText = fmt(j.equipment.load_kw, 2);
+        document.getElementById('grid_kw').innerText = fmt(j.equipment.grid_kw, 2);
+        document.getElementById('battery_kw').innerText = fmt(j.equipment.battery_kw, 2);
+        const soc = Math.max(0, Math.min(100, Number(j.equipment.battery_soc || 0)));
+        document.getElementById('battery_soc_bar').style.width = soc + '%';
+        document.getElementById('battery_soc_label').innerText = soc + '%';
+
+  // Context (inicial)
+  writeContextCubes(j.context, j.kpis, j.equipment, j.costs);
+  renderAlerts(j.alerts);
+  renderOptimization(j.optimization);
+
+        // If live mode, open SSE stream for real-time ticks
+        closeStream();
+        if (source === 'live' || source === 'sim') {
+          const q = new URLSearchParams();
+          q.set('source', source);
+          if (source === 'sim') {
+            const f = document.getElementById('sim_factor');
+            const pv = document.getElementById('sim_pv');
+            const bl = document.getElementById('sim_batt');
+            const soc = document.getElementById('sim_soc');
+            if (f) q.set('factor', String(f.value));
+            if (pv) q.set('pv_factor', String(pv.value));
+            if (bl) q.set('batt_limit', String(bl.value));
+            if (soc) q.set('soc_init', String(soc.value));
+          }
+          evt = new EventSource(`/api/stream?${q.toString()}`);
+          evt.addEventListener('tick', (e) => {
+            try {
+              const data = JSON.parse(e.data);
+              // Update KPIs
+              const k = data.kpis || {};
+              const eq = data.equipment || {};
+              document.getElementById('kpi_current').innerText = fmt(k.current_load_kw, 2);
+              document.getElementById('kpi_avg').innerText = fmt(k.avg_24h_kw, 2);
+              document.getElementById('kpi_peak').innerText = fmt(k.peak_24h_kw, 2);
+              document.getElementById('kpi_temp').innerText = fmt(k.current_temp_c, 1);
+              // Equipment
+              document.getElementById('pv_kw').innerText = fmt(eq.pv_kw, 2);
+              document.getElementById('load_kw').innerText = fmt(eq.load_kw, 2);
+              document.getElementById('grid_kw').innerText = fmt(eq.grid_kw, 2);
+              document.getElementById('battery_kw').innerText = fmt(eq.battery_kw, 2);
+              const soc = Math.max(0, Math.min(100, Number(eq.battery_soc || 0)));
+              document.getElementById('battery_soc_bar').style.width = soc + '%';
+              document.getElementById('battery_soc_label').innerText = soc + '%';
+              // Context (ao vivo)
+              writeContextCubes(data.context, k, eq);
+              if (data.alerts) renderAlerts(data.alerts);
+              // Live feel: extend consumption series gradually
+              const tick = data.tick;
+              if (tick && window.Plotly) {
+                Plotly.extendTraces('consumption_plot', { x: [[tick.x]], y: [[tick.y]] }, [0], 600);
+              }
+            } catch {}
+          });
+          evt.onerror = () => { /* keep trying; browser will auto-retry per retry header */ };
+        }
+      }
+
+      // Live feel: pulse badge and refresh more often
+      function pulseLive(){
+        const dot = document.getElementById('live-dot');
+        if(!dot) return;
+        dot.classList.toggle('on');
+      }
+
+      document.getElementById('source').addEventListener('change', () => {
+        const sel = document.getElementById('source');
+        const simCtl = document.getElementById('sim_controls');
+        if (simCtl) simCtl.style.display = sel.value === 'sim' ? 'inline-flex' : 'none';
+        fetchDashboard();
+        updateExportLink();
+      });
+  const algoSel2 = document.getElementById('algo');
+  if (algoSel2) algoSel2.addEventListener('change', fetchDashboard);
+  const modeSel2 = document.getElementById('mode');
+  if (modeSel2) modeSel2.addEventListener('change', fetchDashboard);
+  const goalInp2 = document.getElementById('goal');
+  if (goalInp2) goalInp2.addEventListener('change', fetchDashboard);
+      const socMin2 = document.getElementById('soc_min');
+      const socMinLbl = document.getElementById('soc_min_label');
+      if (socMin2) {
+        socMin2.addEventListener('input', ()=>{ if (socMinLbl) socMinLbl.innerText = `${socMin2.value}%`; });
+        socMin2.addEventListener('change', fetchDashboard);
+      }
+      function updateExportLink(){
+        const sel = document.getElementById('source');
+        const a = document.getElementById('export_link');
+        if (!a || !sel) return;
+        const q = new URLSearchParams();
+        q.set('source', sel.value);
+        q.set('range', '7d');
+        a.href = '/api/export?' + q.toString();
+      }
+      function bindRange(id, fmt, labelId){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const lbl = document.getElementById(labelId);
+        el.addEventListener('input', () => { if (lbl) lbl.innerText = fmt(el.value); });
+        el.addEventListener('change', fetchDashboard);
+      }
+      bindRange('sim_factor', (v)=>Number(v).toFixed(2)+'x', 'sim_factor_label');
+      bindRange('sim_pv', (v)=>Number(v).toFixed(1)+'x', 'sim_pv_label');
+      bindRange('sim_batt', (v)=>Number(v).toFixed(1)+' kW', 'sim_batt_label');
+      bindRange('sim_soc', (v)=>String(Math.round(Number(v)))+'%', 'sim_soc_label');
+  fetchDashboard();
+  updateExportLink();
+  setInterval(fetchDashboard, 15000);
+      setInterval(pulseLive, 1000);
+      window.addEventListener('resize', () => {
+        Plotly.Plots.resize('consumption_plot');
+        Plotly.Plots.resize('forecast_plot');
+        Plotly.Plots.resize('temperature_plot');
+        Plotly.Plots.resize('daily_plot');
+      });
+
+      function writeContextCubes(contextText, k, eq, costs){
+        setCube('ctx_main', contextText || '—');
+        if (k) {
+          setCube('ctx_load', k.current_load_kw!=null? `${k.current_load_kw.toFixed(2)} kW (média 24h ${k.avg_24h_kw!=null? k.avg_24h_kw.toFixed(2) : '—'})` : '—');
+          setCube('ctx_temp', k.current_temp_c!=null? `${k.current_temp_c.toFixed(1)} °C` : '—');
+        }
+        if (eq) {
+          setCube('ctx_pv', `${(eq.pv_kw??0).toFixed(2)} kW`);
+          const battFlow = (eq.battery_kw??0);
+          const battWord = battFlow>0? 'descarreg.' : battFlow<0? 'carreg.' : 'repouso';
+          setCube('ctx_batt', `${Math.abs(battFlow).toFixed(2)} kW (${battWord}) • SOC ${eq.battery_soc??0}%`);
+          setCube('ctx_grid', `${(eq.grid_kw??0).toFixed(2)} kW`);
+        }
+        if (costs) {
+          const rn = costs.rate_now!=null? `${costs.rate_now.toFixed(2)} R$/kWh` : '—';
+          const cnow = costs.current_cost!=null? `${costs.current_cost.toFixed(2)} R$/h` : '—';
+          const c24 = costs.forecast_cost_24h!=null? `${costs.forecast_cost_24h.toFixed(2)} R$` : '—';
+          const np = costs.next_peak_ts ? new Date(costs.next_peak_ts) : null;
+          const npStr = np ? `${String(np.getHours()).padStart(2,'0')}:${String(np.getMinutes()).padStart(2,'0')}` : '—';
+          let extras = '';
+          if (costs.today_cost != null) extras += ` • Hoje: R$ ${costs.today_cost.toFixed(2)}`;
+          if (costs.last24_cost != null) extras += ` • Últ.24h: R$ ${costs.last24_cost.toFixed(2)}`;
+          setCube('ctx_cost', `Tarifa agora: ${rn} • Inst.: ${cnow} • 24h: ${c24} • Próx. pico: ${npStr}${extras}`);
+        }
+      }
+
+      // Render alerts
+      function renderAlerts(alerts){
+        const cont = document.getElementById('alerts');
+        if (!cont) return;
+        cont.innerHTML = '';
+        if (!alerts || alerts.length === 0) {
+          cont.innerHTML = '<div class="alert none">Sem alertas</div>';
+          return;
+        }
+        for (const a of alerts){
+          const div = document.createElement('div');
+          div.className = 'alert ' + (a.level||'info');
+          div.textContent = a.message||'';
+          cont.appendChild(div);
+        }
+      }
+
+      function setCube(id, text){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const parent = el.closest('.cube');
+        if (el.innerText !== String(text)) {
+          el.innerText = text;
+          // flash animation
+          parent?.classList.add('flash');
+          el.classList.add('change');
+          setTimeout(()=>{ parent?.classList.remove('flash'); el.classList.remove('change'); }, 600);
+        }
+      }
+
+      function renderOptimization(opt){
+        try {
+          const sav = document.getElementById('opt_savings');
+          const base = document.getElementById('opt_base');
+          const optc = document.getElementById('opt_opt');
+          if (sav) sav.innerText = (opt?.savings ?? 0).toFixed(2);
+          if (base) base.innerText = (opt?.baseline_cost ?? 0).toFixed(2);
+          if (optc) optc.innerText = (opt?.optimized_cost ?? 0).toFixed(2);
+          const goalStatus = document.getElementById('goal_status');
+          if (goalStatus) {
+            const daily = (document.getElementById('goal_label')?.innerText || '').includes('R$') ? Number((document.getElementById('goal_label').innerText || '').replace(/[^0-9.,]/g,'').replace(',','.')) : null;
+            if (daily!=null) {
+              goalStatus.innerText = (opt?.savings ?? 0) >= daily ? 'Meta diária atingida ✅' : 'Meta diária ainda não atingida';
+            } else {
+              goalStatus.innerText = '—';
+            }
+          }
+          const cont = document.getElementById('opt_plan');
+          if (!cont) return;
+          cont.innerHTML = '';
+          const plan = opt?.plan || [];
+          const maxRows = 8;
+          for (let i=0;i<Math.min(plan.length, maxRows);i++){
+            const s = plan[i];
+            const row = document.createElement('div');
+            row.className = 'opt-row';
+            const t = new Date(s.ts);
+            const hh = String(t.getHours()).padStart(2,'0');
+            const mm = String(t.getMinutes()).padStart(2,'0');
+            row.innerHTML = `<span>${hh}:${mm}</span>
+                             <span>grid: ${(s.grid_opt_kw??0).toFixed(2)} kW</span>
+                             <span>batt: ${(s.batt_kw??0).toFixed(2)} kW</span>
+                             <span>soc: ${Math.round(s.soc_pct??0)}%</span>`;
+            cont.appendChild(row);
+          }
+        } catch {}
+      }
+
+      // Sidebar alignment: start aligned with first row, stick after passing topbar
+      function computeSidebarOffset(){
+        const topbar = document.querySelector('.topbar');
+        const firstRow = document.querySelector('.main-col .grid.two');
+        const sidebar = document.querySelector('.sidebar');
+        if (!topbar || !firstRow || !sidebar) return;
+        const tb = topbar.getBoundingClientRect();
+        const fr = firstRow.getBoundingClientRect();
+        // Distance from top of main content to top of first row
+        const docTop = window.scrollY;
+        const shell = document.querySelector('.shell');
+        const shellRect = shell?.getBoundingClientRect();
+        const shellTop = shellRect ? (shellRect.top + window.scrollY) : 0;
+        const firstRowTop = fr.top + window.scrollY;
+        const initialOffset = Math.max(0, (firstRowTop - shellTop) - 20); // raise ~20px
+        const stickyTop = tb.height + 10; // allow tiny gap under topbar
+        document.documentElement.style.setProperty('--sidebar-offset', initialOffset + 'px');
+        document.documentElement.style.setProperty('--sticky-top', stickyTop + 'px');
+      }
+      computeSidebarOffset();
+      window.addEventListener('resize', computeSidebarOffset);
+      window.addEventListener('load', computeSidebarOffset);
+    </script>
+  </body>
+ </html>
