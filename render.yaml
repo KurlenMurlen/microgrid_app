@@ -3,7 +3,7 @@ services:
     name: microgrid-app
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+  buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
     startCommand: gunicorn -w 2 -k gevent -b 0.0.0.0:$PORT app:app
     envVars:
       - key: PYTHON_VERSION
