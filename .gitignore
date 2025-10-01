@@ -1,32 +1,5 @@
-# OS
-.DS_Store
-
-# Python
 __pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
 .venv/
-venv/
-ENV/
 .env
-.env.*
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Logs
-*.log
-
-# VS Code
-.vscode/
-
-# Build
-build/
-dist/
-
-# Flask instance (if used)
-instance/
+*.pyc
+.DS_Store
