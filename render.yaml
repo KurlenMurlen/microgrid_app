@@ -1,13 +1,11 @@
 services:
   - type: web
     name: microgrid-app
-    env: python
+    env: docker
     plan: free
-  buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: gunicorn -w 2 -k gevent -b 0.0.0.0:$PORT app:app
+    autoDeploy: true
+    healthCheckPath: /
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
       # Optional external sources
       - key: LIVE_API_URL
         sync: false
@@ -15,8 +13,6 @@ services:
         sync: false
       - key: WEATHER_API_URL
         sync: false
-    healthCheckPath: /
-    autoDeploy: true
     headers:
       - path: /api/stream
         name: X-Accel-Buffering
