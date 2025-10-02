@@ -1,0 +1,21 @@
+# Ignore VCS and editor files
+.git
+.gitignore
+.DS_Store
+.vscode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.env
+.cache/
+node_modules/
+# Byte-compiled and caches
+*.egg-info/
+# OS junk
+Thumbs.db
+# Notebook checkpoints
+.ipynb_checkpoints/
