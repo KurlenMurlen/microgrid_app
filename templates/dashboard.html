@@ -10,53 +10,178 @@
     <link rel="stylesheet" href="/static/styles.css"/>
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand"><span class="brand-dot"></span> Microrrede</div>
-      <div class="row">
-        <div class="badge live" id="live-dot">AO VIVO</div>
-        <div class="badge">MAE: <strong><span id="mae">-</span></strong> kW</div>
-        <select id="source" class="select">
-          <option value="live">Ao vivo</option>
-          <option value="db">Banco (SQLite)</option>
-          <option value="csv">CSV Sintético</option>
-          <option value="sim">Simulação</option>
-        </select>
-        <select id="algo" class="select" title="Algoritmo de previsão">
-          <option value="rf" selected>Random Forest</option>
-          <option value="linear">Linear Regression</option>
-          <option value="ridge">Ridge</option>
-          <option value="lasso">Lasso</option>
-        </select>
-        <select id="mode" class="select" title="Modo de operação">
-          <option value="normal" selected>Gasto normal</option>
-          <option value="economico">Econômico</option>
-          <option value="conforto">Conforto</option>
-        </select>
-        <input id="goal" class="input" placeholder="Ex.: quero economizar 200 reais por mês" style="min-width: 320px;"/>
-        <div class="row" style="gap:8px; align-items:center;">
-          <span class="meta">SOC mínimo</span>
-          <input type="range" min="0" max="80" step="5" value="0" id="soc_min"/>
-          <span class="badge" id="soc_min_label">0%</span>
-        </div>
-        <div id="sim_controls" class="sim-ctl" style="display:none;">
-          <span class="meta">Carga</span>
-          <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor"/>
-          <span class="badge" id="sim_factor_label">1.00x</span>
-          <span class="meta" style="margin-left:8px;">PV</span>
-          <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="sim_pv"/>
-          <span class="badge" id="sim_pv_label">1.0x</span>
-          <span class="meta" style="margin-left:8px;">Bateria</span>
-          <input type="range" min="0" max="5" step="0.5" value="2.0" id="sim_batt"/>
-          <span class="badge" id="sim_batt_label">2.0 kW</span>
-          <span class="meta" style="margin-left:8px;">SOC</span>
-          <input type="range" min="0" max="100" step="5" value="50" id="sim_soc"/>
-          <span class="badge" id="sim_soc_label">50%</span>
+    <!-- Navigation Arrows -->
+    <button class="nav-arrow left" id="nav-left" aria-label="Previous view">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <button class="nav-arrow right" id="nav-right" aria-label="Next view">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+
+    <div class="view-container" id="view-container">
+      <!-- HOME VIEW -->
+      <div class="home-view" id="home-view">
+        <div class="home-content">
+          <div class="home-header">
+            <h1 class="home-title">Economia da Microrrede</h1>
+            <p class="home-subtitle">Otimização inteligente em tempo real</p>
+          </div>
+          
+          <div class="economy-visualization">
+            <svg class="economy-circles" viewBox="0 0 400 400" width="400" height="400">
+              <defs>
+                <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#6ee7b7;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+                </linearGradient>
+                <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#818cf8;stop-opacity:1" />
+                </linearGradient>
+                <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              
+              <!-- Outer ring: Annual/Total -->
+              <circle class="ring ring-outer" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" opacity="0.3" stroke-dasharray="1005" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+              <circle class="ring ring-outer-progress" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" stroke-dasharray="1005" stroke-dashoffset="1005" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+              
+              <!-- Middle ring: Monthly -->
+              <circle class="ring ring-middle" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" opacity="0.3" stroke-dasharray="754" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+              <circle class="ring ring-middle-progress" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" stroke-dasharray="754" stroke-dashoffset="754" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+              
+              <!-- Inner ring: Daily -->
+              <circle class="ring ring-inner" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" opacity="0.3" stroke-dasharray="503" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+              <circle class="ring ring-inner-progress" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" stroke-dasharray="503" stroke-dashoffset="503" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+              
+              <!-- Center text -->
+              <text x="200" y="180" text-anchor="middle" class="economy-label">Economia</text>
+              <text x="200" y="210" text-anchor="middle" class="economy-total" id="economy-total">R$ 0</text>
+            </svg>
+            
+            <!-- Ring labels -->
+            <div class="ring-labels">
+              <div class="ring-label label-inner">
+                <span class="label-text">Diária</span>
+                <span class="label-value" id="economy-daily">R$ 0,00</span>
+                <span class="label-percent" id="economy-daily-percent"></span>
+              </div>
+              <div class="ring-label label-middle">
+                <span class="label-text">Mensal</span>
+                <span class="label-value" id="economy-monthly">R$ 0,00</span>
+                <span class="label-percent" id="economy-monthly-percent"></span>
+              </div>
+              <div class="ring-label label-outer">
+                <span class="label-text">Anual</span>
+                <span class="label-value" id="economy-annual">R$ 0,00</span>
+                <span class="label-percent" id="economy-annual-percent"></span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Key Metrics -->
+          <div class="home-metrics">
+            <div class="metric-card">
+              <div class="metric-icon">⚡</div>
+              <div class="metric-info">
+                <span class="metric-label">Consumo Atual</span>
+                <span class="metric-value" id="home-consumption">0.00 kW</span>
+              </div>
+            </div>
+            
+            <div class="metric-card">
+              <div class="metric-icon">🔋</div>
+              <div class="metric-info">
+                <span class="metric-label">Bateria</span>
+                <span class="metric-value" id="home-battery">50%</span>
+              </div>
+            </div>
+            
+            <div class="metric-card">
+              <div class="metric-icon">☀️</div>
+              <div class="metric-info">
+                <span class="metric-label">Geração Solar</span>
+                <span class="metric-value" id="home-pv">0.00 kW</span>
+              </div>
+            </div>
+            
+            <div class="metric-card">
+              <div class="metric-icon">💰</div>
+              <div class="metric-info">
+                <span class="metric-label">Tarifa Atual</span>
+                <span class="metric-value" id="home-rate">R$ 0,00/kWh</span>
+              </div>
+            </div>
+            
+            <div class="metric-card">
+              <div class="metric-icon">🕐</div>
+              <div class="metric-info">
+                <span class="metric-label">Próximo Pico</span>
+                <span class="metric-value" id="home-next-peak">—</span>
+              </div>
+            </div>
+            
+            <div class="metric-card alerts-card" id="home-alerts-card" style="display: none;">
+              <div class="metric-icon">⚠️</div>
+              <div class="metric-info">
+                <span class="metric-label">Alertas</span>
+                <span class="metric-value" id="home-alerts-count">0</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </header>
 
-    <main class="shell layout">
-      <section class="main-col">
+      <!-- TECHNICAL VIEW -->
+      <div class="technical-view" id="technical-view">
+        <header class="topbar">
+          <div class="brand"><span class="brand-dot"></span> Microrrede</div>
+          <div class="row">
+            <div class="badge live" id="live-dot">AO VIVO</div>
+            <div class="badge">MAE: <strong><span id="mae">-</span></strong> kW</div>
+            <select id="source" class="select">
+              <option value="live">Ao vivo</option>
+              <option value="db">Banco (SQLite)</option>
+              <option value="csv">CSV Sintético</option>
+              <option value="sim">Simulação</option>
+            </select>
+            <select id="algo" class="select" title="Algoritmo de previsão">
+              <option value="rf" selected>Random Forest</option>
+              <option value="linear">Linear Regression</option>
+              <option value="ridge">Ridge</option>
+              <option value="lasso">Lasso</option>
+            </select>
+            <select id="mode" class="select" title="Modo de operação">
+              <option value="normal" selected>Gasto normal</option>
+              <option value="economico">Econômico</option>
+              <option value="conforto">Conforto</option>
+            </select>
+            <input id="goal" class="input" placeholder="Ex.: quero economizar 200 reais por mês" style="min-width: 320px;"/>
+            <div class="row" style="gap:8px; align-items:center;">
+              <span class="meta">SOC mínimo</span>
+              <input type="range" min="0" max="80" step="5" value="0" id="soc_min"/>
+              <span class="badge" id="soc_min_label">0%</span>
+            </div>
+            <div id="sim_controls" class="sim-ctl" style="display:none;">
+              <span class="meta">Carga</span>
+              <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor"/>
+              <span class="badge" id="sim_factor_label">1.00x</span>
+              <span class="meta" style="margin-left:8px;">PV</span>
+              <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="sim_pv"/>
+              <span class="badge" id="sim_pv_label">1.0x</span>
+              <span class="meta" style="margin-left:8px;">Bateria</span>
+              <input type="range" min="0" max="5" step="0.5" value="2.0" id="sim_batt"/>
+              <span class="badge" id="sim_batt_label">2.0 kW</span>
+              <span class="meta" style="margin-left:8px;">SOC</span>
+              <input type="range" min="0" max="100" step="5" value="50" id="sim_soc"/>
+              <span class="badge" id="sim_soc_label">50%</span>
+            </div>
+          </div>
+        </header>
+        <main class="shell layout">
+          <section class="main-col">
         <h1>Monitoramento e Previsão</h1>
         <p class="subtitle">Consumo recente, previsão 24h e estado simplificado da microrrede. Atualização contínua.</p>
 
@@ -165,6 +290,8 @@
         </article>
       </aside>
     </main>
+      </div>
+    </div>
 
     <script>
       const opts = { displayModeBar: false, responsive: true };
@@ -174,6 +301,217 @@
 
       let evt = null;
       function closeStream(){ if (evt) { evt.close(); evt = null; } }
+
+      // View Navigation
+      let currentView = 'home'; // 'home' or 'technical'
+      
+      function updateView() {
+        const container = document.getElementById('view-container');
+        const leftArrow = document.getElementById('nav-left');
+        const rightArrow = document.getElementById('nav-right');
+        
+        if (currentView === 'home') {
+          container.classList.remove('show-technical');
+          container.classList.add('show-home');
+          leftArrow.style.display = 'none';
+          rightArrow.style.display = 'flex';
+          window.location.hash = 'home';
+        } else {
+          container.classList.remove('show-home');
+          container.classList.add('show-technical');
+          leftArrow.style.display = 'flex';
+          rightArrow.style.display = 'none';
+          window.location.hash = 'technical';
+        }
+      }
+      
+      function navigateToTechnical() {
+        currentView = 'technical';
+        updateView();
+      }
+      
+      function navigateToHome() {
+        currentView = 'home';
+        updateView();
+      }
+      
+      document.getElementById('nav-right').addEventListener('click', navigateToTechnical);
+      document.getElementById('nav-left').addEventListener('click', navigateToHome);
+      
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' && currentView === 'home') {
+          navigateToTechnical();
+        } else if (e.key === 'ArrowLeft' && currentView === 'technical') {
+          navigateToHome();
+        }
+      });
+      
+      // Handle hash on load
+      if (window.location.hash === '#technical') {
+        currentView = 'technical';
+      }
+      updateView();
+
+      // Update home view with data
+      function updateHomeView(data) {
+        try {
+          const daily = data.optimization?.savings || 0;
+          const monthly = daily * 30;
+          const annual = daily * 365;
+          
+          // Animate counter
+          function animateValue(id, start, end, duration, formatter) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const range = end - start;
+            const increment = range / (duration / 16);
+            let current = start;
+            const timer = setInterval(() => {
+              current += increment;
+              if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+                current = end;
+                clearInterval(timer);
+              }
+              el.textContent = formatter(current);
+            }, 16);
+          }
+          
+          const fmtCurrency = (v) => `R$ ${v.toFixed(2)}`;
+          const fmtCurrencyShort = (v) => {
+            if (v >= 1000) return `R$ ${(v/1000).toFixed(1)}k`;
+            return `R$ ${v.toFixed(0)}`;
+          };
+          
+          animateValue('economy-daily', 0, daily, 800, fmtCurrency);
+          animateValue('economy-monthly', 0, monthly, 800, fmtCurrency);
+          animateValue('economy-annual', 0, annual, 800, fmtCurrency);
+          animateValue('economy-total', 0, annual, 800, fmtCurrencyShort);
+          
+          // Calculate ring progress based on actual values
+          const dailyCircumference = 2 * Math.PI * 80;
+          const monthlyCircumference = 2 * Math.PI * 120;
+          const annualCircumference = 2 * Math.PI * 160;
+          
+          // Determine progress percentages
+          let dailyPercent, monthlyPercent, annualPercent;
+          
+          // Check if user has a goal set
+          const goal = data.goal;
+          if (goal && goal.daily_target && goal.daily_target > 0) {
+            // Show progress toward goal - this is accurate
+            dailyPercent = Math.min((daily / goal.daily_target) * 100, 100);
+            monthlyPercent = Math.min((monthly / (goal.daily_target * 30)) * 100, 100);
+            annualPercent = Math.min((annual / (goal.daily_target * 365)) * 100, 100);
+          } else {
+            // Without a goal, show relative scale based on baseline cost
+            // Estimate baseline cost from the last 24h cost data
+            const baseline = data.costs?.last24_cost || data.optimization?.baseline_cost || 10;
+            
+            // Calculate what percentage of baseline cost we're saving
+            // If we save 2.50/day from a baseline of 10/day, that's 25% savings rate
+            const dailySavingsRate = baseline > 0 ? (daily / baseline) * 100 : 0;
+            const monthlySavingsRate = (baseline * 30) > 0 ? (monthly / (baseline * 30)) * 100 : 0;
+            const annualSavingsRate = (baseline * 365) > 0 ? (annual / (baseline * 365)) * 100 : 0;
+            
+            // Use savings rate as the percentage, capped at reasonable values
+            dailyPercent = dailySavingsRate;
+            monthlyPercent = monthlySavingsRate;
+            annualPercent = annualSavingsRate;
+            
+            // If savings are very high (>50% of baseline), it's exceptional - cap at 90%
+            dailyPercent = Math.min(dailyPercent, 90);
+            monthlyPercent = Math.min(monthlyPercent, 90);
+            annualPercent = Math.min(annualPercent, 90);
+            
+            // Ensure minimum visibility if there are any savings
+            if (daily > 0.01) dailyPercent = Math.max(dailyPercent, 10);
+            if (monthly > 0.3) monthlyPercent = Math.max(monthlyPercent, 10);
+            if (annual > 3.65) annualPercent = Math.max(annualPercent, 10);
+          }
+          
+          // Final bounds check
+          dailyPercent = Math.max(0, Math.min(100, dailyPercent));
+          monthlyPercent = Math.max(0, Math.min(100, monthlyPercent));
+          annualPercent = Math.max(0, Math.min(100, annualPercent));
+          
+          // Calculate stroke dash offsets (100% - percentage gives us the offset)
+          const innerRing = document.querySelector('.ring-inner-progress');
+          const middleRing = document.querySelector('.ring-middle-progress');
+          const outerRing = document.querySelector('.ring-outer-progress');
+          
+          if (innerRing) {
+            innerRing.style.strokeDashoffset = dailyCircumference * (1 - dailyPercent / 100);
+          }
+          if (middleRing) {
+            middleRing.style.strokeDashoffset = monthlyCircumference * (1 - monthlyPercent / 100);
+          }
+          if (outerRing) {
+            outerRing.style.strokeDashoffset = annualCircumference * (1 - annualPercent / 100);
+          }
+          
+          // Update percentage indicators
+          const dailyPercentEl = document.getElementById('economy-daily-percent');
+          const monthlyPercentEl = document.getElementById('economy-monthly-percent');
+          const annualPercentEl = document.getElementById('economy-annual-percent');
+          
+          // Show percentage with context
+          if (goal && goal.daily_target && goal.daily_target > 0) {
+            // With goal: show as "X% of goal"
+            if (dailyPercentEl) dailyPercentEl.textContent = `${Math.round(dailyPercent)}% da meta`;
+            if (monthlyPercentEl) monthlyPercentEl.textContent = `${Math.round(monthlyPercent)}% da meta`;
+            if (annualPercentEl) annualPercentEl.textContent = `${Math.round(annualPercent)}% da meta`;
+          } else if (daily > 0) {
+            // Without goal: show as "X% savings rate"
+            if (dailyPercentEl) dailyPercentEl.textContent = `${Math.round(dailyPercent)}% economia`;
+            if (monthlyPercentEl) monthlyPercentEl.textContent = `${Math.round(monthlyPercent)}% economia`;
+            if (annualPercentEl) annualPercentEl.textContent = `${Math.round(annualPercent)}% economia`;
+          } else {
+            // No savings yet
+            if (dailyPercentEl) dailyPercentEl.textContent = '';
+            if (monthlyPercentEl) monthlyPercentEl.textContent = '';
+            if (annualPercentEl) annualPercentEl.textContent = '';
+          }
+          
+          // Update metrics
+          const kpis = data.kpis || {};
+          const equipment = data.equipment || {};
+          const costs = data.costs || {};
+          
+          const consumption = document.getElementById('home-consumption');
+          if (consumption) consumption.textContent = `${(kpis.current_load_kw || 0).toFixed(2)} kW`;
+          
+          const battery = document.getElementById('home-battery');
+          if (battery) battery.textContent = `${equipment.battery_soc || 0}%`;
+          
+          const pv = document.getElementById('home-pv');
+          if (pv) pv.textContent = `${(equipment.pv_kw || 0).toFixed(2)} kW`;
+          
+          const rate = document.getElementById('home-rate');
+          if (rate) rate.textContent = `R$ ${(costs.rate_now || 0).toFixed(2)}/kWh`;
+          
+          const nextPeak = document.getElementById('home-next-peak');
+          if (nextPeak && costs.next_peak_ts) {
+            const np = new Date(costs.next_peak_ts);
+            nextPeak.textContent = `${String(np.getHours()).padStart(2,'0')}:${String(np.getMinutes()).padStart(2,'0')}`;
+          } else if (nextPeak) {
+            nextPeak.textContent = '—';
+          }
+          
+          // Update alerts
+          const alerts = data.alerts || [];
+          const alertsCard = document.getElementById('home-alerts-card');
+          const alertsCount = document.getElementById('home-alerts-count');
+          if (alerts.length > 0) {
+            alertsCard.style.display = 'flex';
+            alertsCount.textContent = alerts.length;
+          } else {
+            alertsCard.style.display = 'none';
+          }
+        } catch (e) {
+          console.error('Error updating home view:', e);
+        }
+      }
 
       async function fetchDashboard(){
   const sourceSel = document.getElementById('source');
@@ -200,6 +538,10 @@
         }
         const res = await fetch(`/api/dashboard?${params.toString()}`);
         const j = await res.json();
+        
+        // Update home view
+        updateHomeView(j);
+        
         document.getElementById('mae').innerText = j.metrics.mae_test.toFixed(3);
         const algoBadge = document.getElementById('algo_badge');
         if (algoBadge) {
