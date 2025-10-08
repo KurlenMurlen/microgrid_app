@@ -136,159 +136,284 @@
 
       <!-- TECHNICAL VIEW -->
       <div class="technical-view" id="technical-view">
-        <header class="topbar">
-          <div class="brand"><span class="brand-dot"></span> Microrrede</div>
-          <div class="row">
-            <div class="badge live" id="live-dot">AO VIVO</div>
-            <div class="badge">MAE: <strong><span id="mae">-</span></strong> kW</div>
-            <select id="source" class="select">
+        <header class="tech-header">
+          <div class="tech-brand">
+            <div class="brand-icon"></div>
+            <span class="brand-text">Microrrede · Análise Técnica</span>
+          </div>
+          <div class="tech-controls">
+            <div class="control-group">
+              <label class="control-label">Fonte de Dados</label>
+              <select id="source" class="tech-select">
               <option value="live">Ao vivo</option>
               <option value="db">Banco (SQLite)</option>
               <option value="csv">CSV Sintético</option>
               <option value="sim">Simulação</option>
             </select>
-            <select id="algo" class="select" title="Algoritmo de previsão">
+            </div>
+            <div class="control-group">
+              <label class="control-label">Algoritmo</label>
+              <select id="algo" class="tech-select">
               <option value="rf" selected>Random Forest</option>
               <option value="linear">Linear Regression</option>
               <option value="ridge">Ridge</option>
               <option value="lasso">Lasso</option>
             </select>
-            <select id="mode" class="select" title="Modo de operação">
-              <option value="normal" selected>Gasto normal</option>
+            </div>
+            <div class="control-group">
+              <label class="control-label">Modo</label>
+              <select id="mode" class="tech-select">
+                <option value="normal" selected>Normal</option>
               <option value="economico">Econômico</option>
               <option value="conforto">Conforto</option>
             </select>
-            <input id="goal" class="input" placeholder="Ex.: quero economizar 200 reais por mês" style="min-width: 320px;"/>
-            <div class="row" style="gap:8px; align-items:center;">
-              <span class="meta">SOC mínimo</span>
-              <input type="range" min="0" max="80" step="5" value="0" id="soc_min"/>
-              <span class="badge" id="soc_min_label">0%</span>
             </div>
-            <div id="sim_controls" class="sim-ctl" style="display:none;">
-              <span class="meta">Carga</span>
-              <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor"/>
-              <span class="badge" id="sim_factor_label">1.00x</span>
-              <span class="meta" style="margin-left:8px;">PV</span>
-              <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="sim_pv"/>
-              <span class="badge" id="sim_pv_label">1.0x</span>
-              <span class="meta" style="margin-left:8px;">Bateria</span>
-              <input type="range" min="0" max="5" step="0.5" value="2.0" id="sim_batt"/>
-              <span class="badge" id="sim_batt_label">2.0 kW</span>
-              <span class="meta" style="margin-left:8px;">SOC</span>
-              <input type="range" min="0" max="100" step="5" value="50" id="sim_soc"/>
-              <span class="badge" id="sim_soc_label">50%</span>
+            <div class="status-indicators">
+              <div class="status-item" id="live-status">
+                <span class="status-dot" id="live-dot"></span>
+                <span class="status-text">AO VIVO</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">MAE</span>
+                <span class="status-value" id="mae">-</span>
+                <span class="status-unit">kW</span>
+              </div>
             </div>
           </div>
         </header>
-        <main class="shell layout">
-          <section class="main-col">
-        <h1>Monitoramento e Previsão</h1>
-        <p class="subtitle">Consumo recente, previsão 24h e estado simplificado da microrrede. Atualização contínua.</p>
 
-  <section class="grid two">
-          <article class="card">
-            <div class="row" style="justify-content: space-between;">
-              <div class="meta">Consumo · últimos 7 dias</div>
-              <small class="meta" id="last-updated">—</small>
+        <div class="tech-secondary-controls">
+          <div class="secondary-row">
+            <div class="control-inline">
+              <label class="inline-label">Meta de economia</label>
+              <input id="goal" class="tech-input" placeholder="Ex.: quero economizar 200 reais por mês"/>
             </div>
-            <div id="consumption_plot" class="plot"></div>
-            <p class="footer-note">Interpretação: oscilações refletem padrões diários/semanais de carga e variações de temperatura.</p>
-          </article>
+            <div class="control-inline">
+              <label class="inline-label">SOC mínimo: <span class="inline-value" id="soc_min_label">0%</span></label>
+              <input type="range" min="0" max="80" step="5" value="0" id="soc_min" class="tech-range"/>
+            </div>
+          </div>
+          <div id="sim_controls" class="sim-controls" style="display:none;">
+            <div class="sim-param">
+              <label>Carga: <span id="sim_factor_label">1.00x</span></label>
+              <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor" class="tech-range"/>
+            </div>
+            <div class="sim-param">
+              <label>PV: <span id="sim_pv_label">1.0x</span></label>
+              <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="sim_pv" class="tech-range"/>
+            </div>
+            <div class="sim-param">
+              <label>Bateria: <span id="sim_batt_label">2.0 kW</span></label>
+              <input type="range" min="0" max="5" step="0.5" value="2.0" id="sim_batt" class="tech-range"/>
+            </div>
+            <div class="sim-param">
+              <label>SOC: <span id="sim_soc_label">50%</span></label>
+              <input type="range" min="0" max="100" step="5" value="50" id="sim_soc" class="tech-range"/>
+            </div>
+          </div>
+        </div>
 
-          <article class="card">
-            <div class="header-row">
-              <div class="meta">Previsão de consumo para as próximas 24h</div>
-              <div class="row" style="gap:6px; align-items: center;">
-                <span class="badge ml" id="algo_badge" title="Algoritmo de previsão">RandomForest</span>
-                <span class="badge ml" title="Treinado com scikit-learn 1.1.3">scikit-learn</span>
-                <span class="info-ml" title="Prevemos a demanda usando histórico recente e temperatura. A faixa azul mostra a incerteza (quanto mais larga, menos certeza).">ⓘ</span>
+        <main class="tech-main">
+          <div class="tech-layout">
+            <!-- Left Column: Primary Data -->
+            <section class="data-col">
+              <div class="section-header">
+                <h2>Análise de Consumo</h2>
+                <span class="update-time" id="last-updated">—</span>
               </div>
+
+              <!-- KPIs Row -->
+              <div class="kpi-row">
+                <div class="tech-kpi">
+                  <div class="kpi-header">Carga Atual</div>
+                  <div class="kpi-value" id="kpi_current">—</div>
+                  <div class="kpi-unit">kW</div>
             </div>
-            <div id="forecast_plot" class="plot"></div>
-            <p class="footer-note">Interpretação: projeção baseada em lags de consumo + hora/dia/temperatura.</p>
-          </article>
-        </section>
-
-  <section class="grid two">
-          <article class="card">
-            <div class="meta">Temperatura · últimos 7 dias</div>
-            <div id="temperature_plot" class="plot"></div>
-            <p class="footer-note">Interpretação: auxilia na compreensão de sazonalidade térmica e impacto em carga.</p>
-          </article>
-
-          <article class="card">
-            <div class="meta">Microrrede · estado atual</div>
-            <div class="equip">
-              <div class="equip-flow">
-                <div class="equip-node pv"><span>PV</span><strong id="pv_kw">0</strong> kW</div>
-                <div class="equip-node load"><span>Carga</span><strong id="load_kw">0</strong> kW</div>
-                <div class="equip-node grid"><span>Rede</span><strong id="grid_kw">0</strong> kW</div>
-                <div class="equip-node batt">
-                  <span>Bateria</span>
-                  <strong id="battery_kw">0</strong> kW
-                  <div class="batt-soc"><div id="battery_soc_bar" style="width:50%"></div></div>
-                  <small id="battery_soc_label">50%</small>
+                <div class="tech-kpi">
+                  <div class="kpi-header">Média 24h</div>
+                  <div class="kpi-value" id="kpi_avg">—</div>
+                  <div class="kpi-unit">kW</div>
+                </div>
+                <div class="tech-kpi">
+                  <div class="kpi-header">Pico 24h</div>
+                  <div class="kpi-value" id="kpi_peak">—</div>
+                  <div class="kpi-unit">kW</div>
+                </div>
+                <div class="tech-kpi">
+                  <div class="kpi-header">Temperatura</div>
+                  <div class="kpi-value" id="kpi_temp">—</div>
+                  <div class="kpi-unit">°C</div>
                 </div>
               </div>
-            </div>
-            <p class="footer-note">Interpretação: fluxos estimados (PV→Carga/Bateria, Rede→Carga). SOC indica nível da bateria.</p>
-          </article>
-        </section>
 
-  <section class="grid">
-          <article class="card">
-            <div class="row" style="justify-content: space-between; align-items: baseline;">
-              <div class="meta">Agregações diárias</div>
-              <div class="kpis">
-                <div class="kpi"><span>Atual</span><strong id="kpi_current">—</strong><small>kW</small></div>
-                <div class="kpi"><span>Média 24h</span><strong id="kpi_avg">—</strong><small>kW</small></div>
-                <div class="kpi"><span>Pico 24h</span><strong id="kpi_peak">—</strong><small>kW</small></div>
-                <div class="kpi"><span>Temp</span><strong id="kpi_temp">—</strong><small>°C</small></div>
+              <!-- Consumption Chart -->
+              <div class="data-block">
+                <div class="block-header">
+                  <span class="block-title">Histórico de Consumo · 7 dias</span>
+                </div>
+                <div id="consumption_plot" class="tech-plot"></div>
               </div>
-            </div>
-            <div id="daily_plot" class="plot" style="height: 300px"></div>
-            <p class="footer-note">Interpretação: tendências médias e picos ajudam a identificar cargas críticas e períodos de maior consumo.</p>
-          </article>
-        </section>
 
-        <div class="row" style="justify-content: space-between; align-items: center;">
-          <p class="footer-note" style="margin:0;">Atualiza a cada 15s. Fonte: <span id="source-label">db</span>.</p>
-          <a class="badge" id="export_link" href="#" target="_blank">Exportar CSV (7d)</a>
+              <!-- Forecast Chart -->
+              <div class="data-block">
+                <div class="block-header">
+                  <span class="block-title">Previsão de Consumo · 24 horas</span>
+                  <div class="block-badges">
+                    <span class="tech-badge" id="algo_badge">RandomForest</span>
+                    <span class="tech-badge">scikit-learn</span>
+                </div>
+              </div>
+                <div id="forecast_plot" class="tech-plot"></div>
+            </div>
+
+              <!-- Temperature Chart -->
+              <div class="data-block">
+                <div class="block-header">
+                  <span class="block-title">Temperatura · 7 dias</span>
+              </div>
+                <div id="temperature_plot" class="tech-plot"></div>
+            </div>
+
+              <!-- Daily Aggregations -->
+              <div class="data-block">
+                <div class="block-header">
+                  <span class="block-title">Agregações Diárias</span>
+                </div>
+                <div id="daily_plot" class="tech-plot" style="height: 280px;"></div>
+              </div>
+
+              <!-- Footer -->
+              <div class="data-footer">
+                <span class="footer-info">Atualização automática a cada 15s · Fonte: <span id="source-label">db</span></span>
+                <a class="export-link" id="export_link" href="#" target="_blank">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Exportar CSV (7d)
+                </a>
         </div>
       </section>
 
-      <aside class="sidebar">
-        <div class="context-cubes">
-          <div class="cube"><div class="cube-title">Contexto</div><div class="cube-body" id="ctx_main">—</div></div>
-          <div class="cube"><div class="cube-title">Carga</div><div class="cube-body" id="ctx_load">—</div></div>
-          <div class="cube"><div class="cube-title">Solar</div><div class="cube-body" id="ctx_pv">—</div></div>
-          <div class="cube"><div class="cube-title">Bateria</div><div class="cube-body" id="ctx_batt">—</div></div>
-          <div class="cube"><div class="cube-title">Rede</div><div class="cube-body" id="ctx_grid">—</div></div>
-          <div class="cube"><div class="cube-title">Clima</div><div class="cube-body" id="ctx_temp">—</div></div>
-          <div class="cube"><div class="cube-title">Custo</div><div class="cube-body" id="ctx_cost">—</div></div>
+            <!-- Right Column: System Status & Optimization -->
+            <aside class="status-col">
+              <!-- Equipment Status -->
+              <div class="status-section">
+                <div class="section-title">Estado da Microrrede</div>
+                <div class="equipment-grid">
+                  <div class="equip-item pv">
+                    <div class="equip-label">Geração Solar</div>
+                    <div class="equip-value" id="pv_kw">0.00</div>
+                    <div class="equip-unit">kW</div>
         </div>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="meta">Alertas</div>
-          <div id="alerts" style="display:grid; gap:8px; margin-top:10px;"></div>
-        </article>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="row" style="justify-content: space-between; align-items: center;">
-            <div class="meta">Preços</div>
-            <div class="kpi"><span>Hoje</span><strong id="price_today">—</strong><small>R$</small></div>
+                  <div class="equip-item load">
+                    <div class="equip-label">Carga</div>
+                    <div class="equip-value" id="load_kw">0.00</div>
+                    <div class="equip-unit">kW</div>
           </div>
-          <div class="footer-note">Últ.24h: <span id="price_last24">—</span> R$ · 24h próximos: <span id="price_next24">—</span> R$</div>
-          <div class="opt-plan" id="price_breakdown" style="display:grid; gap:6px; margin-top:10px; font-size: 12px;"></div>
-        </article>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="row" style="justify-content: space-between; align-items: center;">
-            <div class="meta">Otimização (modo <span id="mode_label">normal</span>)</div>
-            <div class="kpi"><span>Economia</span><strong id="opt_savings">—</strong><small>R$</small></div>
+                  <div class="equip-item grid">
+                    <div class="equip-label">Rede</div>
+                    <div class="equip-value" id="grid_kw">0.00</div>
+                    <div class="equip-unit">kW</div>
           </div>
-          <div class="footer-note">Objetivo: <span id="goal_label">—</span> · Baseline: <span id="opt_base">—</span> R$ · Otimizado: <span id="opt_opt">—</span> R$</div>
-          <div class="footer-note" id="goal_status">—</div>
-          <div class="opt-plan" id="opt_plan" style="display:grid; gap:6px; margin-top:10px;"></div>
-        </article>
+                  <div class="equip-item battery">
+                    <div class="equip-label">Bateria</div>
+                    <div class="equip-value" id="battery_kw">0.00</div>
+                    <div class="equip-unit">kW</div>
+                    <div class="battery-bar">
+                      <div class="battery-fill" id="battery_soc_bar" style="width:50%"></div>
+                    </div>
+                    <div class="battery-soc" id="battery_soc_label">50%</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- System Context -->
+              <div class="status-section">
+                <div class="section-title">Contexto do Sistema</div>
+                <div class="context-list">
+                  <div class="context-item">
+                    <div class="context-label">Status</div>
+                    <div class="context-value" id="ctx_main">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Carga</div>
+                    <div class="context-value" id="ctx_load">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Solar</div>
+                    <div class="context-value" id="ctx_pv">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Bateria</div>
+                    <div class="context-value" id="ctx_batt">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Rede</div>
+                    <div class="context-value" id="ctx_grid">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Clima</div>
+                    <div class="context-value" id="ctx_temp">—</div>
+                  </div>
+                  <div class="context-item">
+                    <div class="context-label">Custo</div>
+                    <div class="context-value" id="ctx_cost">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Alerts -->
+              <div class="status-section">
+                <div class="section-title">Alertas do Sistema</div>
+                <div id="alerts" class="alerts-list"></div>
+              </div>
+
+              <!-- Pricing -->
+              <div class="status-section">
+                <div class="section-title">
+                  <span>Custos</span>
+                  <span class="title-value">Hoje: R$ <span id="price_today">—</span></span>
+                </div>
+                <div class="pricing-summary">
+                  <div class="price-item">
+                    <span class="price-label">Últimas 24h</span>
+                    <span class="price-value">R$ <span id="price_last24">—</span></span>
+                  </div>
+                  <div class="price-item">
+                    <span class="price-label">Próximas 24h</span>
+                    <span class="price-value">R$ <span id="price_next24">—</span></span>
+                  </div>
+                </div>
+                <div id="price_breakdown" class="price-breakdown"></div>
+              </div>
+
+              <!-- Optimization -->
+              <div class="status-section">
+                <div class="section-title">
+                  <span>Otimização (<span id="mode_label">normal</span>)</span>
+                  <span class="title-value">Economia: R$ <span id="opt_savings">—</span></span>
+                </div>
+                <div class="optimization-summary">
+                  <div class="opt-item">
+                    <span class="opt-label">Meta</span>
+                    <span class="opt-value" id="goal_label">—</span>
+                  </div>
+                  <div class="opt-item">
+                    <span class="opt-label">Baseline</span>
+                    <span class="opt-value">R$ <span id="opt_base">—</span></span>
+                  </div>
+                  <div class="opt-item">
+                    <span class="opt-label">Otimizado</span>
+                    <span class="opt-value">R$ <span id="opt_opt">—</span></span>
+                  </div>
+                  <div class="opt-status" id="goal_status">—</div>
+                </div>
+                <div id="opt_plan" class="opt-plan"></div>
+              </div>
       </aside>
+          </div>
     </main>
       </div>
     </div>
@@ -571,10 +696,10 @@
             pb.innerHTML = '';
             const b = j.costs.by_period || {};
             const fb = j.costs.forecast_by_period || {};
-            const mk = (label, cur, fut) => `<div class="row" style="justify-content: space-between;"><span>${label}</span><span>Últ.24h: R$ ${(cur||0).toFixed(2)} · Próx.24h: R$ ${(fut||0).toFixed(2)}</span></div>`;
+            const mk = (label, cur, fut) => `<div><strong>${label}</strong><div>Últ.24h: R$ ${(cur||0).toFixed(2)} · Próx.24h: R$ ${(fut||0).toFixed(2)}</div></div>`;
             pb.insertAdjacentHTML('beforeend', mk('Off-peak', b.off, fb.off));
             pb.insertAdjacentHTML('beforeend', mk('Intermediário', b.mid, fb.mid));
-            pb.insertAdjacentHTML('beforeend', mk('Ponta (pico)', b.peak, fb.peak));
+            pb.insertAdjacentHTML('beforeend', mk('Ponta', b.peak, fb.peak));
           }
         }
         document.getElementById('source-label').innerText = j.source;
@@ -690,17 +815,15 @@
         }
       }
 
-      // Live feel: pulse badge and refresh more often
+      // Live status indicator (no animation for professional appearance)
       function pulseLive(){
-        const dot = document.getElementById('live-dot');
-        if(!dot) return;
-        dot.classList.toggle('on');
+        // Status dot is always visible when live
       }
 
       document.getElementById('source').addEventListener('change', () => {
         const sel = document.getElementById('source');
         const simCtl = document.getElementById('sim_controls');
-        if (simCtl) simCtl.style.display = sel.value === 'sim' ? 'inline-flex' : 'none';
+        if (simCtl) simCtl.style.display = sel.value === 'sim' ? 'flex' : 'none';
         fetchDashboard();
         updateExportLink();
       });
@@ -779,7 +902,7 @@
         if (!cont) return;
         cont.innerHTML = '';
         if (!alerts || alerts.length === 0) {
-          cont.innerHTML = '<div class="alert none">Sem alertas</div>';
+          cont.innerHTML = '<div class="alert none">Nenhum alerta ativo</div>';
           return;
         }
         for (const a of alerts){
@@ -793,13 +916,8 @@
       function setCube(id, text){
         const el = document.getElementById(id);
         if (!el) return;
-        const parent = el.closest('.cube');
         if (el.innerText !== String(text)) {
           el.innerText = text;
-          // flash animation
-          parent?.classList.add('flash');
-          el.classList.add('change');
-          setTimeout(()=>{ parent?.classList.remove('flash'); el.classList.remove('change'); }, 600);
         }
       }
 
@@ -841,28 +959,7 @@
         } catch {}
       }
 
-      // Sidebar alignment: start aligned with first row, stick after passing topbar
-      function computeSidebarOffset(){
-        const topbar = document.querySelector('.topbar');
-        const firstRow = document.querySelector('.main-col .grid.two');
-        const sidebar = document.querySelector('.sidebar');
-        if (!topbar || !firstRow || !sidebar) return;
-        const tb = topbar.getBoundingClientRect();
-        const fr = firstRow.getBoundingClientRect();
-        // Distance from top of main content to top of first row
-        const docTop = window.scrollY;
-        const shell = document.querySelector('.shell');
-        const shellRect = shell?.getBoundingClientRect();
-        const shellTop = shellRect ? (shellRect.top + window.scrollY) : 0;
-        const firstRowTop = fr.top + window.scrollY;
-        const initialOffset = Math.max(0, (firstRowTop - shellTop) - 20); // raise ~20px
-        const stickyTop = tb.height + 10; // allow tiny gap under topbar
-        document.documentElement.style.setProperty('--sidebar-offset', initialOffset + 'px');
-        document.documentElement.style.setProperty('--sticky-top', stickyTop + 'px');
-      }
-      computeSidebarOffset();
-      window.addEventListener('resize', computeSidebarOffset);
-      window.addEventListener('load', computeSidebarOffset);
+      // Sidebar is now part of the tech layout grid - no offset computation needed
     </script>
   </body>
  </html>
