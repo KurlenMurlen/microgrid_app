@@ -1,149 +1,36 @@
-# Microgrid Dashboard - Next.js Frontend
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Next.js 14+ frontend for the Microgrid Dashboard with TypeScript, Tailwind CSS, and Plotly.js charts.
+## Getting Started
 
-## Features
-
-- **Home View**: Economy visualization with animated rings showing daily, monthly, and annual savings
-- **Technical View**: Comprehensive dashboard with:
-  - Real-time consumption monitoring
-  - 24-hour ML forecasting with multiple algorithms (Random Forest, Linear, Ridge, Lasso)
-  - Battery optimization with different modes (normal, econômico, conforto)
-  - Equipment state visualization (PV, Battery, Grid, Load)
-  - Pricing analytics with TOU tariffs
-  - SSE streaming for live updates
-- **Dark Mode**: Automatic dark mode support
-- **Responsive Design**: Works on all screen sizes
-
-## Setup
-
-### Prerequisites
-
-- Node.js 18+
-- Flask backend running on port 5000
-
-### Installation
+First, run the development server:
 
 ```bash
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.local.example .env.local
-# Edit .env.local and set NEXT_PUBLIC_API_URL to your Flask backend URL
-
-# Run development server
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Environment Variables
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Create a `.env.local` file:
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-```bash
-# Flask API URL
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
+## Learn More
 
-For production, set this to your deployed Flask API URL.
+To learn more about Next.js, take a look at the following resources:
 
-## Development
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-```bash
-# Development server with hot reload
-npm run dev
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-# Build for production
-npm run build
+## Deploy on Vercel
 
-# Start production server
-npm start
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-# Lint code
-npm run lint
-```
-
-## Architecture
-
-- **App Router**: Next.js 14+ App Router with TypeScript
-- **Styling**: Tailwind CSS with custom design tokens
-- **Charts**: Plotly.js via react-plotly.js
-- **State Management**: React hooks with custom hooks for API calls
-- **Real-time**: Server-Sent Events (SSE) for live data streaming
-
-## Project Structure
-
-```
-frontend/
-├── app/
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Main dashboard page
-│   └── globals.css         # Global styles + Tailwind
-├── components/             # React components
-│   ├── HomeView.tsx        # Economy visualization
-│   ├── TechnicalView.tsx   # Technical dashboard
-│   ├── PlotlyChart.tsx     # Chart components
-│   ├── ContextCubes.tsx    # Context display
-│   ├── Alerts.tsx          # Alert notifications
-│   ├── PricingCard.tsx     # Pricing breakdown
-│   ├── OptimizationCard.tsx # Battery optimization
-│   ├── NavArrows.tsx       # View navigation
-│   ├── Badge.tsx           # Badge component
-│   ├── Card.tsx            # Card container
-│   ├── Select.tsx          # Select input
-│   └── RangeSlider.tsx     # Range slider
-├── lib/
-│   ├── api.ts             # API client functions
-│   ├── hooks.ts           # Custom React hooks
-│   └── types.ts           # TypeScript interfaces
-├── public/                # Static assets
-├── tailwind.config.ts     # Tailwind configuration
-└── next.config.js         # Next.js config
-```
-
-## API Integration
-
-The frontend communicates with the Flask backend via:
-
-1. **REST API**: `/api/dashboard`, `/api/export`
-2. **SSE Stream**: `/api/stream` for real-time updates
-
-All API calls go through the centralized client in `lib/api.ts`.
-
-## Navigation
-
-- **Arrow Buttons**: Click left/right arrows to navigate between views
-- **Keyboard**: Use arrow keys (← →) to navigate
-- **URL Hash**: Direct links via `#home` or `#technical`
-
-## Deployment
-
-### Vercel (Recommended)
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-
-# Set environment variable in Vercel dashboard
-# NEXT_PUBLIC_API_URL = your-flask-api-url
-```
-
-### Other Platforms
-
-Build the production bundle:
-
-```bash
-npm run build
-npm start
-```
-
-Set the `NEXT_PUBLIC_API_URL` environment variable to your Flask API URL.
-
-## License
-
-MIT
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

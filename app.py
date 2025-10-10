@@ -1,5 +1,4 @@
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
-from flask_cors import CORS
 import sqlite3, pandas as pd, joblib, json, os, socket, time
 from typing import Optional
 import requests
@@ -8,20 +7,6 @@ import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 
 app = Flask(__name__, template_folder="templates")
-
-# Enable CORS for Next.js frontend
-CORS(app, resources={
-    r"/api/*": {
-        "origins": [
-            "http://localhost:3000",  # Next.js dev server
-            os.environ.get("CORS_ORIGIN", "")  # Production origin from env
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
-        "expose_headers": ["Content-Type"],
-        "supports_credentials": False
-    }
-})
 MODEL = joblib.load("models/model.joblib")
 with open("models/metrics.json","r") as f:
     METRICS = json.load(f)

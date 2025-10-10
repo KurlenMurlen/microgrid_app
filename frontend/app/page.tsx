@@ -1,162 +1,103 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { HomeView } from '@/components/HomeView';
-import { TechnicalView } from '@/components/TechnicalView';
-import { NavArrows } from '@/components/NavArrows';
-import { useDashboard, useSSEStream, useInterval } from '@/lib/hooks';
-import type { SourceType, AlgoType, ModeType } from '@/lib/types';
+import Image from "next/image";
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<'home' | 'technical'>('home');
-  const [source, setSource] = useState<SourceType>('db');
-  const [algo, setAlgo] = useState<AlgoType>('rf');
-  const [mode, setMode] = useState<ModeType>('normal');
-  const [goal, setGoal] = useState('');
-  const [socMin, setSocMin] = useState(0);
-  const [simFactor, setSimFactor] = useState(1.0);
-  const [simPv, setSimPv] = useState(1.0);
-  const [simBatt, setSimBatt] = useState(2.0);
-  const [simSoc, setSimSoc] = useState(50);
-
-  // Fetch dashboard data
-  const { data, loading, error, refresh } = useDashboard({
-    source,
-    algo,
-    mode,
-    goal: goal || undefined,
-    soc_min: socMin,
-    factor: source === 'sim' ? simFactor : undefined,
-    pv_factor: source === 'sim' ? simPv : undefined,
-    batt_limit: source === 'sim' ? simBatt : undefined,
-    soc_init: source === 'sim' ? simSoc : undefined,
-  });
-
-  // SSE stream for live/sim modes
-  const streamEnabled = source === 'live' || source === 'sim';
-  const tick = useSSEStream(
-    {
-      source,
-      factor: source === 'sim' ? simFactor : undefined,
-      pv_factor: source === 'sim' ? simPv : undefined,
-      batt_limit: source === 'sim' ? simBatt : undefined,
-      soc_init: source === 'sim' ? simSoc : undefined,
-    },
-    streamEnabled
-  );
-
-  // Auto-refresh every 15 seconds
-  useInterval(() => {
-    if (!streamEnabled) {
-      refresh();
-    }
-  }, 15000);
-
-  // Handle hash navigation
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash === '#technical') {
-      setCurrentView('technical');
-    } else {
-      setCurrentView('home');
-    }
-  }, []);
-
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' && currentView === 'home') {
-        setCurrentView('technical');
-        window.location.hash = 'technical';
-      } else if (e.key === 'ArrowLeft' && currentView === 'technical') {
-        setCurrentView('home');
-        window.location.hash = 'home';
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentView]);
-
-  const navigateToHome = () => {
-    setCurrentView('home');
-    window.location.hash = 'home';
-  };
-
-  const navigateToTechnical = () => {
-    setCurrentView('technical');
-    window.location.hash = 'technical';
-  };
-
-  // Update data with SSE tick if in streaming mode
-  const displayData = tick && streamEnabled ? { ...data!, kpis: tick.kpis, equipment: tick.equipment } : data;
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-500 mb-2">Error Loading Dashboard</h1>
-          <p className="text-text-dim">{error.message}</p>
-          <button
-            onClick={refresh}
-            className="mt-4 px-4 py-2 bg-accent-2 text-white rounded-full hover:bg-accent transition-smooth"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      <NavArrows
-        currentView={currentView}
-        onNavigateToHome={navigateToHome}
-        onNavigateToTechnical={navigateToTechnical}
-      />
-
-      <div
-        className={`view-container ${currentView === 'home' ? 'show-home' : 'show-technical'}`}
-      >
-        <HomeView data={displayData} />
-        <TechnicalView
-          data={displayData}
-          source={source}
-          algo={algo}
-          mode={mode}
-          goal={goal}
-          socMin={socMin}
-          simFactor={simFactor}
-          simPv={simPv}
-          simBatt={simBatt}
-          simSoc={simSoc}
-          onSourceChange={(v) => {
-            setSource(v);
-            refresh();
-          }}
-          onAlgoChange={(v) => {
-            setAlgo(v);
-            refresh();
-          }}
-          onModeChange={(v) => {
-            setMode(v);
-            refresh();
-          }}
-          onGoalChange={setGoal}
-          onSocMinChange={setSocMin}
-          onSimFactorChange={setSimFactor}
-          onSimPvChange={setSimPv}
-          onSimBattChange={setSimBatt}
-          onSimSocChange={setSimSoc}
+    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={180}
+          height={38}
+          priority
         />
-      </div>
+        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
+          <li className="mb-2 tracking-[-.01em]">
+            Get started by editing{" "}
+            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
+              app/page.tsx
+            </code>
+            .
+          </li>
+          <li className="tracking-[-.01em]">
+            Save and see your changes instantly.
+          </li>
+        </ol>
 
-      {loading && (
-        <div className="fixed bottom-4 right-4 px-4 py-2 bg-surface border border-border rounded-full shadow-card-md">
-          <span className="text-text-dim text-sm">Carregando...</span>
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <a
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={20}
+              height={20}
+            />
+            Deploy now
+          </a>
+          <a
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Read our docs
+          </a>
         </div>
-      )}
-    </>
+      </main>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/file.svg"
+            alt="File icon"
+            width={16}
+            height={16}
+          />
+          Learn
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="Window icon"
+            width={16}
+            height={16}
+          />
+          Examples
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/globe.svg"
+            alt="Globe icon"
+            width={16}
+            height={16}
+          />
+          Go to nextjs.org →
+        </a>
+      </footer>
+    </div>
   );
 }
