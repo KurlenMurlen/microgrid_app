@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
+from flask import send_file
 import sqlite3, pandas as pd, joblib, json, os, socket, time
 from typing import Optional
 import requests
@@ -12,6 +13,121 @@ with open("models/metrics.json","r") as f:
     METRICS = json.load(f)
 
 DB_PATH = "data/consumption.db"
+VOSK_MODEL_URL = os.environ.get(
+    "VOSK_MODEL_PT_URL",
+    "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
+)
+VOSK_LOCAL_PATH = os.path.join("models", "vosk-model-small-pt-0.3.zip")
+
+def _ensure_dir(p: str):
+    d = os.path.dirname(p)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
+
+def compute_drift(df: pd.DataFrame) -> dict:
+    """Simple drift detection comparing last 24h vs previous 24h mean and variance.
+    Returns: { change_pct, z, level } level in {'low','warn','high'}
+    """
+    try:
+        s = df.copy().sort_values("timestamp")
+        s["timestamp"] = pd.to_datetime(s["timestamp"]).dt.tz_localize(None)
+        if len(s) < 48:
+            return {"change_pct": 0.0, "z": 0.0, "level": "low"}
+        if len(s) >= 2:
+            dt_hours = float(pd.Series(s["timestamp"]).diff().dropna().dt.total_seconds().median() / 3600.0)
+            if not np.isfinite(dt_hours) or dt_hours <= 0:
+                dt_hours = 1.0
+        else:
+            dt_hours = 1.0
+        steps_day = int(max(1, round(24.0 / dt_hours)))
+        last24 = s.tail(steps_day)
+        prev24 = s.tail(steps_day * 2).head(steps_day)
+        c1 = last24["consumption_kW"].astype(float).to_numpy()
+        c0 = prev24["consumption_kW"].astype(float).to_numpy()
+        m1 = float(np.mean(c1))
+        m0 = float(np.mean(c0))
+        v1 = float(np.var(c1, ddof=1) if len(c1) > 1 else 0.0)
+        v0 = float(np.var(c0, ddof=1) if len(c0) > 1 else 0.0)
+        change_pct = 0.0 if m0 == 0 else (m1 - m0) / m0 * 100.0
+        n = float(steps_day)
+        pooled_var = ((n - 1) * v0 + (n - 1) * v1) / max(1.0, (2 * n - 2))
+        pooled_std = float(np.sqrt(max(1e-9, pooled_var)))
+        z = 0.0 if pooled_std == 0 else (m1 - m0) / (pooled_std / np.sqrt(n))
+        level = "low"
+        if abs(change_pct) >= 20 or abs(z) >= 2.5:
+            level = "high"
+        elif abs(change_pct) >= 10 or abs(z) >= 1.8:
+            level = "warn"
+        return {"change_pct": round(change_pct, 2), "z": round(z, 2), "level": level}
+    except Exception:
+        return {"change_pct": 0.0, "z": 0.0, "level": "low"}
+
+@app.route("/api/vosk/model")
+def api_vosk_model():
+    """Serve the Vosk PT-BR model from local cache. If missing, download once and cache.
+    Hardening: retries with backoff, temp file + atomic rename, larger timeout and chunk size,
+    and cache-friendly headers. Same-origin to avoid CORS."""
+    try:
+        if not os.path.exists(VOSK_LOCAL_PATH):
+            _ensure_dir(VOSK_LOCAL_PATH)
+            tmp_path = VOSK_LOCAL_PATH + ".part"
+            # Retry loop
+            attempts = 0
+            last_err = None
+            while attempts < 3:
+                attempts += 1
+                try:
+                    with requests.get(VOSK_MODEL_URL, stream=True, timeout=120) as r:
+                        r.raise_for_status()
+                        with open(tmp_path, "wb") as f:
+                            for chunk in r.iter_content(chunk_size=1024 * 1024):  # 1MB
+                                if chunk:
+                                    f.write(chunk)
+                    # Atomic replace
+                    os.replace(tmp_path, VOSK_LOCAL_PATH)
+                    break
+                except Exception as e:
+                    last_err = e
+                    # Clean partial
+                    try:
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                    except Exception:
+                        pass
+                    # Backoff
+                    time.sleep(1.5 * attempts)
+            if not os.path.exists(VOSK_LOCAL_PATH):
+                raise RuntimeError(f"Download falhou após {attempts} tentativas: {last_err}")
+        # Serve cached file with cache headers
+        resp = send_file(VOSK_LOCAL_PATH, mimetype="application/zip", as_attachment=False, conditional=True)
+        try:
+            mtime = os.path.getmtime(VOSK_LOCAL_PATH)
+            size = os.path.getsize(VOSK_LOCAL_PATH)
+            resp.headers['Cache-Control'] = 'public, max-age=2592000, immutable'  # 30 days
+            resp.headers['Content-Length'] = str(size)
+            resp.headers['Last-Modified'] = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime))
+        except Exception:
+            pass
+        return resp
+    except Exception as e:
+        return jsonify({"error": "failed_to_fetch_model", "detail": str(e)}), 500
+
+@app.route("/api/vosk/status")
+def api_vosk_status():
+    """Return JSON with cache status for the Vosk model zip."""
+    try:
+        exists = os.path.exists(VOSK_LOCAL_PATH)
+        size = os.path.getsize(VOSK_LOCAL_PATH) if exists else 0
+        mtime = os.path.getmtime(VOSK_LOCAL_PATH) if exists else None
+        return jsonify({
+            "exists": exists,
+            "size": int(size),
+            "mtime": (None if mtime is None else int(mtime)),
+            "source_url": VOSK_MODEL_URL,
+            "local_path": VOSK_LOCAL_PATH,
+        })
+    except Exception as e:
+        return jsonify({"exists": False, "error": str(e)}), 200
 
 def load_source(source: str = "db"):
     source = (source or "db").lower()
@@ -38,10 +154,48 @@ def load_source(source: str = "db"):
     return load_latest_data()
 
 def load_latest_data():
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT timestamp, consumption_kW, temperature_C FROM consumption ORDER BY timestamp ASC", conn, parse_dates=["timestamp"])
-    conn.close()
-    return df
+    """Load data from SQLite; on failure or empty, fall back to CSV or generate synthetic."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql_query(
+            "SELECT timestamp, consumption_kW, temperature_C FROM consumption ORDER BY timestamp ASC",
+            conn,
+            parse_dates=["timestamp"],
+        )
+        conn.close()
+        if df is not None and len(df):
+            return df
+    except Exception:
+        pass
+    # Fallback to CSV if available
+    try:
+        csv_path = os.path.join("data", "synthetic_consumption.csv")
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            if "timestamp" in df.columns:
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
+            else:
+                df.insert(0, "timestamp", pd.date_range(end=pd.Timestamp.now(), periods=len(df), freq="H"))
+            if "consumption_kW" not in df.columns:
+                for alt in ["consumption", "load", "power_kW"]:
+                    if alt in df.columns:
+                        df = df.rename(columns={alt: "consumption_kW"})
+                        break
+            if "temperature_C" not in df.columns:
+                hours = pd.to_datetime(df["timestamp"]).dt.hour
+                df["temperature_C"] = 24 + 3 * np.sin((hours - 6) / 24 * 2 * np.pi)
+            return df[["timestamp", "consumption_kW", "temperature_C"]].sort_values("timestamp")
+    except Exception:
+        pass
+    # Final fallback: generate synthetic for the last ~14 days hourly
+    now = pd.Timestamp.now().tz_localize(None)
+    idx = pd.date_range(end=now, periods=24 * 14, freq="H")
+    hours = idx.hour + idx.minute / 60
+    temp = 24 + 3 * np.sin((hours - 6) / 24 * 2 * np.pi)
+    base = 2.5 + 0.8 * (1 + np.sin((hours - 6) / 24 * 2 * np.pi)) + 0.2 * np.sin((hours) / 24 * 4 * np.pi)
+    noise = np.random.normal(0, 0.08, size=len(idx))
+    load = np.maximum(0.2, (base + 0.05 * (temp - 24) + noise))
+    return pd.DataFrame({"timestamp": idx, "consumption_kW": load, "temperature_C": temp})
 
 def estimate_temp(ts: pd.Timestamp) -> float:
     ts = pd.to_datetime(ts)
@@ -538,7 +692,7 @@ def api_stream():
     pv_factor = float(request.args.get("pv_factor", 1.0))
     batt_limit = float(request.args.get("batt_limit", 2.0))
     soc_init = float(request.args.get("soc_init", 50.0))
-    if source in ("sim", "simulacao"):
+    if source == "sim" or source == "simulacao":
         now = pd.Timestamp.now().tz_localize(None).floor("h")
         idx = pd.date_range(end=now, periods=24*14, freq="H")
         hours = idx.hour + idx.minute/60
@@ -548,7 +702,20 @@ def api_stream():
         load = np.maximum(0.2, (base + 0.05*(temp-24) + noise) * float(factor))
         df_live = pd.DataFrame({"timestamp": idx, "consumption_kW": load, "temperature_C": temp})
     else:
-        df_live = load_source("db" if source == "live" else source).sort_values("timestamp").copy()
+        try:
+            df_live = load_source("db" if source == "live" else source).sort_values("timestamp").copy()
+            if df_live is None or len(df_live) == 0:
+                raise ValueError("empty live dataset")
+        except Exception:
+            # fallback to synthetic stream baseline
+            now = pd.Timestamp.now().tz_localize(None).floor("h")
+            idx = pd.date_range(end=now, periods=24*14, freq="H")
+            hours = idx.hour + idx.minute/60
+            temp = 24 + 3*np.sin((hours-6)/24*2*np.pi)
+            base = 2.5 + 0.8 * (1 + np.sin((hours-6)/24*2*np.pi)) + 0.2*np.sin((hours)/24*4*np.pi)
+            noise = np.random.normal(0, 0.08, size=len(idx))
+            load = np.maximum(0.2, (base + 0.05*(temp-24) + noise) * float(factor))
+            df_live = pd.DataFrame({"timestamp": idx, "consumption_kW": load, "temperature_C": temp})
     df_live["timestamp"] = pd.to_datetime(df_live["timestamp"]).dt.tz_localize(None)
 
     def gen():
@@ -556,6 +723,26 @@ def api_stream():
         retry_ms = 2000
         yield f"retry: {retry_ms}\n\n"
         last = df_live.iloc[-1]
+        # Battery stateful model for stream
+        cap_kwh = 10.0
+        soc_state_kwh = float(np.clip(soc_init, 0, 100)) / 100.0 * cap_kwh
+        batt_limit_kw = float(max(0.0, batt_limit))
+        from typing import Tuple
+        def step_battery(soc_kwh: float, load_kw: float, pv_kw: float, dt_hours: float) -> Tuple[float, float]:
+            """Return (new_soc_kwh, batt_kw), batt_kw>0 discharging to load, <0 charging"""
+            net = float(load_kw) - float(pv_kw)
+            batt_kw = 0.0
+            if net > 0 and soc_kwh > 0:
+                max_discharge_kw = soc_kwh / dt_hours
+                batt_kw = float(min(net, batt_limit_kw, max_discharge_kw))
+                soc_kwh = max(0.0, soc_kwh - batt_kw * dt_hours)
+            elif net < 0 and soc_kwh < cap_kwh:
+                surplus_kw = -net
+                max_charge_kw = (cap_kwh - soc_kwh) / dt_hours
+                charge_kw = float(min(surplus_kw, batt_limit_kw, max_charge_kw))
+                batt_kw = -charge_kw
+                soc_kwh = min(cap_kwh, soc_kwh + charge_kw * dt_hours)
+            return soc_kwh, batt_kw
         while True:
             # Try external live point if configured when source == live
             point = _live_external_point() if source == "live" else None
@@ -571,20 +758,36 @@ def api_stream():
                 _insert_live_point(point)
             except Exception:
                 pass
-            # Determine consistent 24h window size by timestep
+            # Determine approx dt for battery step (based on last two points)
             if len(df_live) >= 2:
-                dt_hours = float(pd.Series(df_live["timestamp"]).diff().dropna().dt.total_seconds().median() / 3600.0)
+                dt_hours = float(pd.to_datetime(df_live["timestamp"]).diff().iloc[-1].total_seconds() / 3600.0)
                 if not np.isfinite(dt_hours) or dt_hours <= 0:
-                    dt_hours = 1.0
+                    dt_hours = 1.0/60.0
             else:
-                dt_hours = 1.0
-            window_steps = int(max(1, round(24.0 / dt_hours)))
+                dt_hours = 1.0/60.0
+            # KPIs on a rolling 24h window
+            if len(df_live) >= 2:
+                med_dt = float(pd.Series(df_live["timestamp"]).diff().dropna().dt.total_seconds().median() / 3600.0)
+                if not np.isfinite(med_dt) or med_dt <= 0:
+                    med_dt = 1.0
+            else:
+                med_dt = 1.0
+            window_steps = int(max(1, round(24.0 / med_dt)))
             window_df = df_live.tail(window_steps).copy()
             kpis = compute_kpis(window_df) if len(window_df) else {}
-            equip = compute_equipment_state(
-                window_df,
-                pv_factor=pv_factor, batt_power_limit_kw=batt_limit, soc_init_pct=soc_init
-            )
+            # Estimate PV for last timestamp and update battery state
+            ts_last = pd.to_datetime(last["timestamp"]).tz_localize(None)
+            temp_last = float(last.get("temperature_C", 24.0))
+            pv_now = estimate_pv_kw(ts_last, temp_last, pv_factor=pv_factor)
+            load_now = float(last["consumption_kW"]) if "consumption_kW" in last else 0.0
+            soc_state_kwh, batt_kw = step_battery(soc_state_kwh, load_now, pv_now, dt_hours)
+            equip = {
+                "pv_kw": round(pv_now, 3),
+                "load_kw": round(load_now, 3),
+                "battery_kw": round(batt_kw, 3),
+                "grid_kw": round(max(0.0, load_now - pv_now - batt_kw), 3),
+                "battery_soc": int(round(100 * soc_state_kwh / cap_kwh)),
+            }
             context = generate_context(kpis, equip)
             alerts = compute_alerts(kpis, equip)
             payload = {
@@ -608,26 +811,53 @@ def api_stream():
 
 @app.route("/")
 def index():
-    return render_template("dashboard.html")
+    dev_livereload = os.environ.get("DEV_LIVERELOAD", "0") in ("1", "true", "True", "yes")
+    return render_template("dashboard.html", dev_livereload=dev_livereload)
 
 @app.route("/api/dashboard")
 def api_dashboard():
     source = request.args.get("source", "db").lower()
     algo = (request.args.get("algo") or "rf").lower()
-    factor = float(request.args.get("factor", 1.0))
-    pv_factor = float(request.args.get("pv_factor", 1.0))
-    batt_limit = float(request.args.get("batt_limit", 2.0))
-    soc_init = float(request.args.get("soc_init", 50.0))
+    # Normalize Portuguese synonyms
+    if algo in ("floresta", "floresta_aleatoria", "floresta-aleatoria", "rf-pt"):
+        algo = "rf"
+    if algo in ("regressao", "regressao_linear", "regressão", "regressão_linear"):
+        algo = "linear"
+    if algo in ("automatico", "automático", "auto-pt"):
+        algo = "auto"
+    def safe_float(val, default):
+        try:
+            if val is None:
+                return float(default)
+            if isinstance(val, str) and val.strip() == "":
+                return float(default)
+            return float(val)
+        except Exception:
+            return float(default)
+
+    factor = safe_float(request.args.get("factor"), 1.0)
+    pv_factor = safe_float(request.args.get("pv_factor"), 1.0)
+    batt_limit = safe_float(request.args.get("batt_limit"), 2.0)
+    soc_init = safe_float(request.args.get("soc_init"), 50.0)
     mode = (request.args.get("mode") or "normal").lower()
     goal_text = request.args.get("goal")
     goal = parse_goal(goal_text)
-    soc_min = float(request.args.get("soc_min", 0.0))
+    soc_min = safe_float(request.args.get("soc_min"), 0.0)
+    # Clamp to sensible ranges
+    factor = float(np.clip(factor, 0.5, 1.5))
+    pv_factor = float(np.clip(pv_factor, 0.5, 2.0))
+    batt_limit = float(np.clip(batt_limit, 0.0, 10.0))
+    soc_init = float(np.clip(soc_init, 0.0, 100.0))
+    soc_min = float(np.clip(soc_min, 0.0, 80.0))
     if source == "sim" or source == "simulacao":
         # Generate synthetic series for the last ~14 days for richer context
         now = pd.Timestamp.now().tz_localize(None)
         idx = pd.date_range(end=now, periods=24*14, freq="H")
         hours = idx.hour + idx.minute/60
         temp = 24 + 3*np.sin((hours-6)/24*2*np.pi)
+        # Additional context for drift detection
+        df_full = load_source(source)
+        drift = compute_drift(df_full)
         base = 2.5 + 0.8 * (1 + np.sin((hours-6)/24*2*np.pi)) + 0.2*np.sin((hours)/24*4*np.pi)
         noise = np.random.normal(0, 0.08, size=len(idx))
         load = np.maximum(0.2, (base + 0.05*(temp-24) + noise) * float(factor))
@@ -649,9 +879,66 @@ def api_dashboard():
     # Choose model per 'algo'
     active_model = None
     metrics = {**METRICS}
+    # helpers to train/eval simple models with same split
+    def _train_test_split(df_feat_local):
+        Xl = df_feat_local[features]
+        yl = df_feat_local["consumption_kW"].astype(float)
+        if len(df_feat_local) >= 2:
+            dt_hours_local = float(pd.Series(df_feat_local["timestamp"]).diff().dropna().dt.total_seconds().median() / 3600.0)
+            if not np.isfinite(dt_hours_local) or dt_hours_local <= 0:
+                dt_hours_local = 1.0
+        else:
+            dt_hours_local = 1.0
+        steps_day_l = int(max(1, round(24.0 / dt_hours_local)))
+        test_n_l = int(min(len(df_feat_local)//3, max(steps_day_l*3, 24)))
+        split_l = max(1, len(df_feat_local) - test_n_l)
+        return (Xl.iloc[:split_l], yl.iloc[:split_l], Xl.iloc[split_l:], yl.iloc[split_l:])
+
+    def _mae(y_true, y_pred):
+        try:
+            return float(np.mean(np.abs(y_true.values - y_pred)))
+        except Exception:
+            return float("inf")
     if algo in ("rf", "random_forest", "randomforest"):
         active_model = MODEL
         # keep metrics from saved file
+    elif algo in ("auto",):
+        try:
+            X_train, y_train, X_test, y_test = _train_test_split(df_feat)
+            # Evaluate RF saved model
+            rf_mae = _mae(y_test, MODEL.predict(X_test)) if len(X_test) else float(METRICS.get("mae_test", 0.5))
+            best = ("rf", rf_mae, MODEL)
+            # Linear
+            try:
+                lr = LinearRegression()
+                lr.fit(X_train, y_train)
+                mae_lr = _mae(y_test, lr.predict(X_test))
+                if mae_lr < best[1]: best = ("linear", mae_lr, lr)
+            except Exception:
+                pass
+            # Ridge
+            try:
+                rg = Ridge(alpha=1.0)
+                rg.fit(X_train, y_train)
+                mae_rg = _mae(y_test, rg.predict(X_test))
+                if mae_rg < best[1]: best = ("ridge", mae_rg, rg)
+            except Exception:
+                pass
+            # Lasso
+            try:
+                ls = Lasso(alpha=0.001, max_iter=10000)
+                ls.fit(X_train, y_train)
+                mae_ls = _mae(y_test, ls.predict(X_test))
+                if mae_ls < best[1]: best = ("lasso", mae_ls, ls)
+            except Exception:
+                pass
+            algo = best[0]
+            active_model = best[2]
+            metrics = {"mae_test": round(float(best[1]), 4)}
+        except Exception:
+            active_model = MODEL
+            metrics = {**METRICS}
+            algo = "rf"
     elif algo in ("linear", "lin", "lr", "linear_regression"):
         # Train a quick Linear Regression on-the-fly
         try:

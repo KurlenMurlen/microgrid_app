@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-dev-lr="{{ '1' if dev_livereload else '0' }}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -7,9 +7,34 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
     <link rel="preconnect" href="https://cdn.plot.ly" crossorigin>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <link rel="stylesheet" href="/static/styles.css"/>
+    <!-- Voice control library (MIT) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/annyang/2.6.1/annyang.min.js" integrity="sha512-+c2x5cY7eCLe/6Qk/B2oZSkKdzdeojwZ2bOqzvtDklwxOUr6SZW7nL8p3aYpKT8g1+YjLxhpQd8a/5O8TRzFqg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Vosk offline speech recognition (browser WASM) -->
+  <script src="https://cdn.jsdelivr.net/npm/vosk-browser/dist/vosk.js"></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20251016"/>
   </head>
   <body>
+    <script>
+      // Read dev live-reload flag from data attribute (set by backend)
+      (function(){
+        try { window.__DEV_LIVERELOAD = (document.documentElement.getAttribute('data-dev-lr') === '1'); } catch { window.__DEV_LIVERELOAD = false; }
+      })();
+    </script>
+    <!-- Live reload (dev only): enabled when DEV_LIVERELOAD is true and running locally -->
+    <script>
+      (function(){
+        try {
+          const dev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+          // Backend will set window.__DEV_LIVERELOAD if enabled
+          if (dev && window.__DEV_LIVERELOAD) {
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'http://localhost:35729/livereload.js?snipver=1';
+            document.head.appendChild(s);
+          }
+        } catch {}
+      })();
+    </script>
     <!-- Navigation Arrows -->
     <button class="nav-arrow left" id="nav-left" aria-label="Previous view">
       <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -18,7 +43,13 @@
       <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
 
-    <div class="view-container" id="view-container">
+    <!-- Simple tabs to switch views -->
+    <nav class="global-tabs" aria-label="Seções">
+      <button id="tab-home" class="tab active" aria-controls="home-view" aria-selected="true">Início</button>
+      <button id="tab-technical" class="tab" aria-controls="technical-view" aria-selected="false">Técnico</button>
+    </nav>
+
+  <div class="view-container show-home" id="view-container">
       <!-- HOME VIEW -->
       <div class="home-view" id="home-view">
         <div class="home-content">
@@ -27,110 +58,111 @@
             <p class="home-subtitle">Otimização inteligente em tempo real</p>
           </div>
           
-          <div class="economy-visualization">
-            <svg class="economy-circles" viewBox="0 0 400 400" width="400" height="400">
-              <defs>
-                <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#6ee7b7;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
-                </linearGradient>
-                <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#818cf8;stop-opacity:1" />
-                </linearGradient>
-                <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#818cf8;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
-                </linearGradient>
-              </defs>
-              
-              <!-- Outer ring: Annual/Total -->
-              <circle class="ring ring-outer" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" opacity="0.3" stroke-dasharray="1005" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
-              <circle class="ring ring-outer-progress" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" stroke-dasharray="1005" stroke-dashoffset="1005" stroke-linecap="round" transform="rotate(-90 200 200)"/>
-              
-              <!-- Middle ring: Monthly -->
-              <circle class="ring ring-middle" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" opacity="0.3" stroke-dasharray="754" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
-              <circle class="ring ring-middle-progress" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" stroke-dasharray="754" stroke-dashoffset="754" stroke-linecap="round" transform="rotate(-90 200 200)"/>
-              
-              <!-- Inner ring: Daily -->
-              <circle class="ring ring-inner" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" opacity="0.3" stroke-dasharray="503" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
-              <circle class="ring ring-inner-progress" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" stroke-dasharray="503" stroke-dashoffset="503" stroke-linecap="round" transform="rotate(-90 200 200)"/>
-              
-              <!-- Center text -->
-              <text x="200" y="180" text-anchor="middle" class="economy-label">Economia</text>
-              <text x="200" y="210" text-anchor="middle" class="economy-total" id="economy-total">R$ 0</text>
-            </svg>
-            
-            <!-- Ring labels -->
-            <div class="ring-labels">
-              <div class="ring-label label-inner">
-                <span class="label-text">Diária</span>
-                <span class="label-value" id="economy-daily">R$ 0,00</span>
-                <span class="label-percent" id="economy-daily-percent"></span>
+          <div class="economy-wrap">
+            <div class="economy-visualization">
+              <svg class="economy-circles" viewBox="0 0 400 400" width="400" height="400" aria-label="Anéis de economia">
+                <defs>
+                  <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#34d399;stop-opacity:1" />
+                  </linearGradient>
+                  <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#86efac;stop-opacity:1" />
+                  </linearGradient>
+                  <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#34d399;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <!-- Outer ring: Annual -->
+                <circle class="ring ring-outer" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" opacity="0.2" stroke-dasharray="1005" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+                <circle class="ring ring-outer-progress" cx="200" cy="200" r="160" fill="none" stroke="url(#gradient3)" stroke-width="20" stroke-dasharray="1005" stroke-dashoffset="1005" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+                
+                <!-- Middle ring: Monthly -->
+                <circle class="ring ring-middle" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" opacity="0.3" stroke-dasharray="754" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+                <circle class="ring ring-middle-progress" cx="200" cy="200" r="120" fill="none" stroke="url(#gradient2)" stroke-width="18" stroke-dasharray="754" stroke-dashoffset="754" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+                
+                <!-- Inner ring: Daily -->
+                <circle class="ring ring-inner" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" opacity="0.3" stroke-dasharray="503" stroke-dashoffset="0" transform="rotate(-90 200 200)"/>
+                <circle class="ring ring-inner-progress" cx="200" cy="200" r="80" fill="none" stroke="url(#gradient1)" stroke-width="16" stroke-dasharray="503" stroke-dashoffset="503" stroke-linecap="round" transform="rotate(-90 200 200)"/>
+                
+                <!-- Center text -->
+                <text x="200" y="180" text-anchor="middle" class="economy-label">Economia</text>
+                <text x="200" y="210" text-anchor="middle" class="economy-total" id="economy-total">R$ 0</text>
+              </svg>
+            </div>
+            <div class="economy-right" aria-label="Painéis de economia e métricas">
+              <div class="economy-side">
+                <div class="economy-block eb-daily">
+                  <div class="eb-title">Diária</div>
+                  <div class="eb-value" id="economy-daily">R$ 0,00</div>
+                  <div class="eb-sub" id="economy-daily-percent"></div>
+                </div>
+                <div class="economy-block eb-monthly">
+                  <div class="eb-title">Mensal</div>
+                  <div class="eb-value" id="economy-monthly">R$ 0,00</div>
+                  <div class="eb-sub" id="economy-monthly-percent"></div>
+                </div>
+                <div class="economy-block eb-annual">
+                  <div class="eb-title">Anual</div>
+                  <div class="eb-value" id="economy-annual">R$ 0,00</div>
+                  <div class="eb-sub" id="economy-annual-percent"></div>
+                </div>
               </div>
-              <div class="ring-label label-middle">
-                <span class="label-text">Mensal</span>
-                <span class="label-value" id="economy-monthly">R$ 0,00</span>
-                <span class="label-percent" id="economy-monthly-percent"></span>
+              <!-- Metric cards moved up to the right and will continue to the next columns -->
+              <div class="metric-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Consumo Atual</span>
+                  <span class="metric-value" id="home-consumption">0.00 kW</span>
+                </div>
               </div>
-              <div class="ring-label label-outer">
-                <span class="label-text">Anual</span>
-                <span class="label-value" id="economy-annual">R$ 0,00</span>
-                <span class="label-percent" id="economy-annual-percent"></span>
+              <div class="metric-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="7" width="16" height="10" rx="2" ry="2" stroke="currentColor" stroke-width="2"/><rect x="19" y="10" width="2" height="4" fill="currentColor"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Bateria</span>
+                  <span class="metric-value" id="home-battery">50%</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.2 4.2l2.1 2.1"/><path d="M17.7 17.7l2.1 2.1"/><path d="M4.2 19.8l2.1-2.1"/><path d="M17.7 6.3l2.1-2.1"/></g></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Geração Solar</span>
+                  <span class="metric-value" id="home-pv">0.00 kW</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M8 12h8M9 9h6M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Tarifa Atual</span>
+                  <span class="metric-value" id="home-rate">R$ 0,00/kWh</span>
+                </div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Próximo Pico</span>
+                  <span class="metric-value" id="home-next-peak">—</span>
+                </div>
+              </div>
+              <div class="metric-card" id="home-localtime-card">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Hora Local</span>
+                  <span class="metric-value" id="home-local-time">--:--</span>
+                </div>
+              </div>
+              <div class="metric-card alerts-card" id="home-alerts-card" style="display: none;">
+                <div class="metric-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l10 18H2L12 3z" stroke="currentColor" stroke-width="2"/><path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></div>
+                <div class="metric-info">
+                  <span class="metric-label">Alertas</span>
+                  <span class="metric-value" id="home-alerts-count">0</span>
+                </div>
               </div>
             </div>
           </div>
           
-          <!-- Key Metrics -->
-          <div class="home-metrics">
-            <div class="metric-card">
-              <div class="metric-icon">⚡</div>
-              <div class="metric-info">
-                <span class="metric-label">Consumo Atual</span>
-                <span class="metric-value" id="home-consumption">0.00 kW</span>
-              </div>
-            </div>
-            
-            <div class="metric-card">
-              <div class="metric-icon">🔋</div>
-              <div class="metric-info">
-                <span class="metric-label">Bateria</span>
-                <span class="metric-value" id="home-battery">50%</span>
-              </div>
-            </div>
-            
-            <div class="metric-card">
-              <div class="metric-icon">☀️</div>
-              <div class="metric-info">
-                <span class="metric-label">Geração Solar</span>
-                <span class="metric-value" id="home-pv">0.00 kW</span>
-              </div>
-            </div>
-            
-            <div class="metric-card">
-              <div class="metric-icon">💰</div>
-              <div class="metric-info">
-                <span class="metric-label">Tarifa Atual</span>
-                <span class="metric-value" id="home-rate">R$ 0,00/kWh</span>
-              </div>
-            </div>
-            
-            <div class="metric-card">
-              <div class="metric-icon">🕐</div>
-              <div class="metric-info">
-                <span class="metric-label">Próximo Pico</span>
-                <span class="metric-value" id="home-next-peak">—</span>
-              </div>
-            </div>
-            
-            <div class="metric-card alerts-card" id="home-alerts-card" style="display: none;">
-              <div class="metric-icon">⚠️</div>
-              <div class="metric-info">
-                <span class="metric-label">Alertas</span>
-                <span class="metric-value" id="home-alerts-count">0</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -138,9 +170,9 @@
       <div class="technical-view" id="technical-view">
         <header class="topbar">
           <div class="brand"><span class="brand-dot"></span> Microrrede</div>
-          <div class="row">
-            <div class="badge live" id="live-dot">AO VIVO</div>
+          <div class="row controls">
             <div class="badge">MAE: <strong><span id="mae">-</span></strong> kW</div>
+            <div class="badge" id="local-clock" title="Hora local">--:--</div>
             <select id="source" class="select">
               <option value="live">Ao vivo</option>
               <option value="db">Banco (SQLite)</option>
@@ -148,22 +180,24 @@
               <option value="sim">Simulação</option>
             </select>
             <select id="algo" class="select" title="Algoritmo de previsão">
-              <option value="rf" selected>Random Forest</option>
-              <option value="linear">Linear Regression</option>
+              <option value="auto" selected>Automático</option>
+              <option value="rf">Floresta Aleatória</option>
+              <option value="linear">Regressão Linear</option>
               <option value="ridge">Ridge</option>
               <option value="lasso">Lasso</option>
+              <option value="recent">Recente (24h)</option>
             </select>
             <select id="mode" class="select" title="Modo de operação">
               <option value="normal" selected>Gasto normal</option>
               <option value="economico">Econômico</option>
               <option value="conforto">Conforto</option>
             </select>
-            <input id="goal" class="input" placeholder="Ex.: quero economizar 200 reais por mês" style="min-width: 320px;"/>
-            <div class="row" style="gap:8px; align-items:center;">
-              <span class="meta">SOC mínimo</span>
-              <input type="range" min="0" max="80" step="5" value="0" id="soc_min"/>
-              <span class="badge" id="soc_min_label">0%</span>
+            <div class="goal-voice">
+              <input id="goal" type="hidden" />
+              <input id="soc_min" type="hidden" />
+              <button id="voice-btn" class="btn-voice" aria-label="Comando por voz" title="Falar comando"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 11v1a7 7 0 0 1-14 0v-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 19v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             </div>
+            <!-- SOC mínimo control removed for UI simplicity; controllable by voice only -->
             <div id="sim_controls" class="sim-ctl" style="display:none;">
               <span class="meta">Carga</span>
               <input type="range" min="0.5" max="1.5" step="0.05" value="1.0" id="sim_factor"/>
@@ -178,8 +212,46 @@
               <input type="range" min="0" max="100" step="5" value="50" id="sim_soc"/>
               <span class="badge" id="sim_soc_label">50%</span>
             </div>
+            <button id="legend-toggle" class="hamburger" aria-label="Abrir legenda" aria-controls="legend-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
           </div>
         </header>
+        <!-- Legend Drawer and Backdrop -->
+        <div id="legend-backdrop" class="legend-backdrop" hidden></div>
+        <aside id="legend-drawer" class="legend-drawer" aria-hidden="true">
+          <div class="legend-header">
+            <h2>Legenda de Siglas</h2>
+            <button id="legend-close" class="legend-close" aria-label="Fechar legenda">×</button>
+          </div>
+          <div class="legend-content">
+            <dl>
+              <dt>MAE</dt><dd>Erro Médio Absoluto (qualidade da previsão em kW).</dd>
+              <dt>PV</dt><dd>Fotovoltaico (geração solar).</dd>
+              <dt>SOC</dt><dd>State of Charge (nível de carga da bateria, %).</dd>
+              <dt>KPI</dt><dd>Indicador-chave de desempenho (métricas resumidas).</dd>
+              <dt>RF</dt><dd>Random Forest (algoritmo de previsão).</dd>
+              <dt>CSV</dt><dd>Arquivo de valores separados por vírgula (fonte de dados sintética).</dd>
+              <dt>DB</dt><dd>Banco de dados (SQLite) como fonte de dados.</dd>
+              <dt>kW</dt><dd>Quilowatt (potência).</dd>
+              <dt>kWh</dt><dd>Quilowatt-hora (energia).</dd>
+              <dt>Rede</dt><dd>Suprimento da rede elétrica pública.</dd>
+              <dt>Modo</dt><dd>Perfil de otimização (Normal, Econômico ou Conforto).</dd>
+            </dl>
+            <hr/>
+            <div class="legend-voice-examples">
+              <h3 style="margin:8px 0 4px;">Comandos por voz (exemplos)</h3>
+              <ul style="margin:0 0 8px 18px; line-height:1.6;">
+                <li>“ao vivo”, “banco”, “csv”, “simulação”</li>
+                <li>“modo econômico”, “modo conforto”, “modo normal”</li>
+                <li>“random forest”, “regressão linear”, “ridge”, “lasso”</li>
+                <li>“fator de carga 1.2”, “pv 1.5”, “limite de bateria 3”, “soc inicial 60”</li>
+                <li>“quero economizar 200 reais por mês” ou “por dia”</li>
+                <li>“abrir legenda”, “fechar legenda”, “exportar csv”</li>
+                <li>Ativar por palavra‑chave: diga “ok microrrede” (motor do navegador)</li>
+              </ul>
+              <small class="meta">Dica: no modo offline (Vosk), a palavra‑chave fica desabilitada por segurança do navegador.</small>
+            </div>
+          </div>
+        </aside>
         <main class="shell layout">
           <section class="main-col">
         <h1>Monitoramento e Previsão</h1>
@@ -199,7 +271,7 @@
             <div class="header-row">
               <div class="meta">Previsão de consumo para as próximas 24h</div>
               <div class="row" style="gap:6px; align-items: center;">
-                <span class="badge ml" id="algo_badge" title="Algoritmo de previsão">RandomForest</span>
+                <span class="badge ml" id="algo_badge" title="Algoritmo de previsão">Automático</span>
                 <span class="badge ml" title="Treinado com scikit-learn 1.1.3">scikit-learn</span>
                 <span class="info-ml" title="Prevemos a demanda usando histórico recente e temperatura. A faixa azul mostra a incerteza (quanto mais larga, menos certeza).">ⓘ</span>
               </div>
@@ -258,39 +330,97 @@
       </section>
 
       <aside class="sidebar">
-        <div class="context-cubes">
-          <div class="cube"><div class="cube-title">Contexto</div><div class="cube-body" id="ctx_main">—</div></div>
-          <div class="cube"><div class="cube-title">Carga</div><div class="cube-body" id="ctx_load">—</div></div>
-          <div class="cube"><div class="cube-title">Solar</div><div class="cube-body" id="ctx_pv">—</div></div>
-          <div class="cube"><div class="cube-title">Bateria</div><div class="cube-body" id="ctx_batt">—</div></div>
-          <div class="cube"><div class="cube-title">Rede</div><div class="cube-body" id="ctx_grid">—</div></div>
-          <div class="cube"><div class="cube-title">Clima</div><div class="cube-body" id="ctx_temp">—</div></div>
-          <div class="cube"><div class="cube-title">Custo</div><div class="cube-body" id="ctx_cost">—</div></div>
+        <div class="mini-cubes">
+          <div class="mini">
+            <span class="mini-label">Carga</span>
+            <strong id="ctx_load">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">Solar</span>
+            <strong id="ctx_pv">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">Clima</span>
+            <strong id="ctx_temp">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">Rede</span>
+            <strong id="ctx_grid">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">Bateria</span>
+            <strong id="ctx_batt">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">SOC mínimo</span>
+            <strong id="ctx_socmin">—</strong>
+          </div>
+          <div class="mini">
+            <span class="mini-label">Custo</span>
+            <strong id="ctx_cost">—</strong>
+          </div>
         </div>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="meta">Alertas</div>
-          <div id="alerts" style="display:grid; gap:8px; margin-top:10px;"></div>
-        </article>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="row" style="justify-content: space-between; align-items: center;">
-            <div class="meta">Preços</div>
-            <div class="kpi"><span>Hoje</span><strong id="price_today">—</strong><small>R$</small></div>
+        <!-- Cenários A/B -->
+        <div class="ab-panel card" style="margin-top:10px;">
+          <div class="row" style="justify-content: space-between; align-items:center;">
+            <div class="meta">Cenários A/B</div>
+            <div class="row" style="gap:6px;">
+              <button id="ab_save_a" class="btn-ghost" title="Salvar parâmetros atuais como A">Salvar A</button>
+              <button id="ab_save_b" class="btn-ghost" title="Salvar parâmetros atuais como B">Salvar B</button>
+              <button id="ab_compare" class="btn-primary" title="Comparar A vs B">Comparar</button>
+            </div>
           </div>
-          <div class="footer-note">Últ.24h: <span id="price_last24">—</span> R$ · 24h próximos: <span id="price_next24">—</span> R$</div>
-          <div class="opt-plan" id="price_breakdown" style="display:grid; gap:6px; margin-top:10px; font-size: 12px;"></div>
-        </article>
-        <article class="card" style="margin-top: var(--gap-lg);">
-          <div class="row" style="justify-content: space-between; align-items: center;">
-            <div class="meta">Otimização (modo <span id="mode_label">normal</span>)</div>
-            <div class="kpi"><span>Economia</span><strong id="opt_savings">—</strong><small>R$</small></div>
-          </div>
-          <div class="footer-note">Objetivo: <span id="goal_label">—</span> · Baseline: <span id="opt_base">—</span> R$ · Otimizado: <span id="opt_opt">—</span> R$</div>
-          <div class="footer-note" id="goal_status">—</div>
-          <div class="opt-plan" id="opt_plan" style="display:grid; gap:6px; margin-top:10px;"></div>
-        </article>
+          <div id="ab_status" class="meta" style="margin-top:6px;">Defina A e B com fontes/modos diferentes, depois Compare.</div>
+          <div id="ab_result" style="margin-top:8px;"></div>
+        </div>
       </aside>
     </main>
       </div>
+    </div>
+
+    <div class="voice-overlay" id="voice-overlay" aria-hidden="true">
+      <div class="voice-panel" role="dialog" aria-modal="true" aria-labelledby="voice-title">
+        <div class="voice-header">
+          <div class="voice-title"><span class="dot"></span><span id="voice-title">Escutando…</span></div>
+          <div class="voice-actions">
+            <button class="btn-ghost" id="voice-test">Testar microfone</button>
+            <button class="btn-ghost" id="voice-cancel">Cancelar</button>
+            <button class="btn-primary" id="voice-apply">Aplicar</button>
+          </div>
+        </div>
+        <div class="voice-input">
+          <svg class="voice-mic" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 11v1a7 7 0 0 1-14 0v-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 19v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="voice-text"><span id="voice-transcript" class="voice-placeholder">Fale seu comando…</span></div>
+        </div>
+        <div class="voice-engine" style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <label for="voice-engine" class="meta">Motor</label>
+          <select id="voice-engine" class="select">
+            <option value="auto">Navegador (online)</option>
+            <option value="vosk">Offline (Vosk)</option>
+          </select>
+          <label class="meta" style="display:inline-flex; align-items:center; gap:6px; margin-left:8px;">
+            <input type="checkbox" id="hotword-toggle" /> Ativar por palavra‑chave (“ok microrrede”)
+          </label>
+        </div>
+  <div class="voice-hint">Exemplo: “modo econômico”, “simulação”, “quero economizar 200 reais por mês”</div>
+  <div class="voice-status" id="voice-status"></div>
+        <div class="voice-wave" aria-hidden="true">
+          <div class="voice-bar"></div>
+          <div class="voice-bar"></div>
+          <div class="voice-bar"></div>
+          <div class="voice-bar"></div>
+          <div class="voice-bar"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Alerts Modal -->
+    <div class="modal-backdrop" id="alerts-backdrop" hidden></div>
+    <div class="modal-panel" id="alerts-modal" hidden aria-modal="true" role="dialog" aria-labelledby="alerts-title">
+      <div class="modal-header">
+        <h3 id="alerts-title">Alertas</h3>
+        <button class="modal-close" id="alerts-close" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-body" id="alerts-body"></div>
     </div>
 
     <script>
@@ -323,6 +453,16 @@
           rightArrow.style.display = 'none';
           window.location.hash = 'technical';
         }
+        // recalc sticky offsets and force Plotly resize to avoid overlaps on view switch
+        try { computeSidebarOffset(); } catch {}
+        try {
+          if (window.Plotly) {
+            ['consumption_plot','forecast_plot','temperature_plot','daily_plot'].forEach(id=>{
+              const el = document.getElementById(id);
+              if (el) Plotly.Plots.resize(el);
+            });
+          }
+        } catch {}
       }
       
       function navigateToTechnical() {
@@ -337,6 +477,22 @@
       
       document.getElementById('nav-right').addEventListener('click', navigateToTechnical);
       document.getElementById('nav-left').addEventListener('click', navigateToHome);
+      // Tabs navigation
+      (function(){
+        const tabHome = document.getElementById('tab-home');
+        const tabTech = document.getElementById('tab-technical');
+        function syncTabs(){
+          if (!tabHome || !tabTech) return;
+          const isHome = currentView==='home';
+          tabHome.classList.toggle('active', isHome);
+          tabTech.classList.toggle('active', !isHome);
+          tabHome.setAttribute('aria-selected', String(isHome));
+          tabTech.setAttribute('aria-selected', String(!isHome));
+        }
+        tabHome?.addEventListener('click', ()=>{ navigateToHome(); syncTabs(); });
+        tabTech?.addEventListener('click', ()=>{ navigateToTechnical(); syncTabs(); });
+        syncTabs();
+      })();
       
       // Keyboard navigation
       document.addEventListener('keydown', (e) => {
@@ -351,11 +507,12 @@
       if (window.location.hash === '#technical') {
         currentView = 'technical';
       }
-      updateView();
+  updateView();
 
       // Update home view with data
       function updateHomeView(data) {
         try {
+          window._lastDashboard = data;
           const daily = data.optimization?.savings || 0;
           const monthly = daily * 30;
           const annual = daily * 365;
@@ -479,13 +636,39 @@
           const costs = data.costs || {};
           
           const consumption = document.getElementById('home-consumption');
-          if (consumption) consumption.textContent = `${(kpis.current_load_kw || 0).toFixed(2)} kW`;
+          if (consumption) {
+            const loadNow = Number(kpis.current_load_kw || 0);
+            consumption.textContent = `${loadNow.toFixed(2)} kW`;
+            consumption.title = loadNow <= 0.01 ? 'Carga ≈ 0 kW: período de baixa atividade.' : '';
+          }
           
           const battery = document.getElementById('home-battery');
-          if (battery) battery.textContent = `${equipment.battery_soc || 0}%`;
+          if (battery) {
+            const rawSoc = (equipment?.battery_soc);
+            const soc = typeof rawSoc === 'number' && isFinite(rawSoc) ? rawSoc : 0;
+            const socClamped = Math.max(0, Math.min(100, Math.round(soc)));
+            battery.textContent = `${socClamped}%`;
+            // Explain why 0%
+            if (socClamped === 0) {
+              battery.title = 'SOC em 0% no momento. Em Simulação, ajuste "SOC inicial" por voz ou aumente PV para carregar.';
+            } else {
+              battery.title = '';
+            }
+          }
           
           const pv = document.getElementById('home-pv');
-          if (pv) pv.textContent = `${(equipment.pv_kw || 0).toFixed(2)} kW`;
+          if (pv) {
+            const pvVal = Number(equipment.pv_kw || 0);
+            pv.textContent = `${pvVal.toFixed(2)} kW`;
+            // Add no-sun explanatory hint when appropriate
+            const isNight = (function(){
+              const serverTs = data?.kpis?.last_updated;
+              const d = serverTs ? new Date(serverTs) : new Date();
+              const h = d.getHours();
+              return h < 6 || h >= 18;
+            })();
+            pv.title = (pvVal <= 0.01 && isNight) ? 'Sem geração solar agora porque está fora do horário de sol.' : '';
+          }
           
           const rate = document.getElementById('home-rate');
           if (rate) rate.textContent = `R$ ${(costs.rate_now || 0).toFixed(2)}/kWh`;
@@ -498,13 +681,24 @@
             nextPeak.textContent = '—';
           }
           
-          // Update alerts
-          const alerts = data.alerts || [];
+          // Update alerts (include PV≈0 at night client-side helper)
+          const alerts = (data.alerts || []).slice();
+          try {
+            const pvNow = Number((data?.equipment?.pv_kw) || 0);
+            const serverTs = data?.kpis?.last_updated;
+            const d = serverTs ? new Date(serverTs) : new Date();
+            const h = d.getHours();
+            const night = h < 6 || h >= 18;
+            if (pvNow <= 0.01 && night) {
+              alerts.push({ level: 'info', message: 'PV ≈ 0 kW: sem sol agora (horário noturno).' });
+            }
+          } catch {}
           const alertsCard = document.getElementById('home-alerts-card');
           const alertsCount = document.getElementById('home-alerts-count');
           if (alerts.length > 0) {
             alertsCard.style.display = 'flex';
             alertsCount.textContent = alerts.length;
+            alertsCard.style.cursor = 'pointer';
           } else {
             alertsCard.style.display = 'none';
           }
@@ -525,7 +719,9 @@
   if (algoSel) params.set('algo', algoSel.value);
   if (modeSel) params.set('mode', modeSel.value);
   if (goalInp && goalInp.value) params.set('goal', goalInp.value);
-  if (socMin) params.set('soc_min', socMin.value);
+  if (socMin && socMin.value !== '' && isFinite(Number(socMin.value))) {
+    params.set('soc_min', socMin.value);
+  }
         if (source === 'sim') {
           const f = document.getElementById('sim_factor');
           const pv = document.getElementById('sim_pv');
@@ -536,8 +732,8 @@
           if (bl) params.set('batt_limit', String(bl.value));
           if (soc) params.set('soc_init', String(soc.value));
         }
-        const res = await fetch(`/api/dashboard?${params.toString()}`);
-        const j = await res.json();
+  const res = await fetch(`/api/dashboard?${params.toString()}`);
+  const j = await res.json();
         
         // Update home view
         updateHomeView(j);
@@ -545,10 +741,12 @@
         document.getElementById('mae').innerText = j.metrics.mae_test.toFixed(3);
         const algoBadge = document.getElementById('algo_badge');
         if (algoBadge) {
-          algoBadge.innerText = (j.algo === 'linear') ? 'LinearReg' : 'RandomForest';
-          algoBadge.title = (j.algo === 'linear') ? 'Linear Regression' : 'Random Forest Regressor';
+          const map = { rf: 'Floresta Aleatória', linear: 'Regressão Linear', ridge: 'Ridge', lasso: 'Lasso', auto: 'Automático', recent: 'Recente (24h)' };
+          const lbl = map[j.algo] || j.algo;
+          algoBadge.innerText = lbl;
+          algoBadge.title = 'Algoritmo: ' + lbl;
         }
-        const modeLbl = document.getElementById('mode_label');
+  const modeLbl = document.getElementById('mode_label');
         if (modeLbl && j.mode) modeLbl.innerText = j.mode;
         const goalLbl = document.getElementById('goal_label');
         if (goalLbl) {
@@ -578,6 +776,14 @@
           }
         }
         document.getElementById('source-label').innerText = j.source;
+        // Show SOC min in a mini-cube when provided
+        const socMinCube = document.getElementById('ctx_socmin');
+        if (socMinCube && (j.soc_min != null)) {
+          socMinCube.innerText = `${Math.round(Number(j.soc_min))}%`;
+          const mini = socMinCube.closest('.mini');
+          mini?.classList.remove('state-ok','state-warn','state-crit');
+          mini?.classList.add(j.soc_min <= 40 ? 'state-ok' : j.soc_min <= 60 ? 'state-warn' : 'state-crit');
+        }
         document.getElementById('last-updated').innerText = new Date(j.kpis.last_updated).toLocaleString();
 
         const consumptionData = j.consumption.data.slice();
@@ -600,6 +806,8 @@
           margin: { t: 40, r: 12, b: 40, l: 50 },
           barmode: 'group'
         }, opts);
+
+        
 
         Plotly.newPlot('temperature_plot', j.temperature.data, {
           ...j.temperature.layout,
@@ -629,9 +837,26 @@
         document.getElementById('kpi_temp').innerText = fmt(j.kpis.current_temp_c, 1);
 
         // Equipment state
-        document.getElementById('pv_kw').innerText = fmt(j.equipment.pv_kw, 2);
-        document.getElementById('load_kw').innerText = fmt(j.equipment.load_kw, 2);
-        document.getElementById('grid_kw').innerText = fmt(j.equipment.grid_kw, 2);
+        const pvEl = document.getElementById('pv_kw');
+        const loadEl = document.getElementById('load_kw');
+        const gridEl = document.getElementById('grid_kw');
+        const pvVal0 = Number(j.equipment.pv_kw || 0);
+        const loadVal0 = Number(j.equipment.load_kw || 0);
+        const gridVal0 = Number(j.equipment.grid_kw || 0);
+        if (pvEl) {
+          pvEl.innerText = fmt(pvVal0, 2);
+          const hour = new Date().getHours();
+          const isNight = hour < 6 || hour >= 18;
+          pvEl.title = (pvVal0 <= 0.01 && isNight) ? 'PV ≈ 0 kW: sem sol (período noturno).' : '';
+        }
+        if (loadEl) {
+          loadEl.innerText = fmt(loadVal0, 2);
+          loadEl.title = (loadVal0 <= 0.01) ? 'Carga ≈ 0 kW: período de baixa atividade.' : '';
+        }
+        if (gridEl) {
+          gridEl.innerText = fmt(gridVal0, 2);
+          gridEl.title = (gridVal0 <= 0.01) ? 'Rede ≈ 0 kW: consumo coberto por PV/bateria.' : 'Importando da rede (kW positivos).';
+        }
         document.getElementById('battery_kw').innerText = fmt(j.equipment.battery_kw, 2);
         const soc = Math.max(0, Math.min(100, Number(j.equipment.battery_soc || 0)));
         document.getElementById('battery_soc_bar').style.width = soc + '%';
@@ -669,9 +894,26 @@
               document.getElementById('kpi_peak').innerText = fmt(k.peak_24h_kw, 2);
               document.getElementById('kpi_temp').innerText = fmt(k.current_temp_c, 1);
               // Equipment
-              document.getElementById('pv_kw').innerText = fmt(eq.pv_kw, 2);
-              document.getElementById('load_kw').innerText = fmt(eq.load_kw, 2);
-              document.getElementById('grid_kw').innerText = fmt(eq.grid_kw, 2);
+              const pvElL = document.getElementById('pv_kw');
+              const loadElL = document.getElementById('load_kw');
+              const gridElL = document.getElementById('grid_kw');
+              if (pvElL) {
+                const v = Number(eq.pv_kw || 0);
+                pvElL.innerText = fmt(v, 2);
+                const hour = new Date().getHours();
+                const isNight = hour < 6 || hour >= 18;
+                pvElL.title = (v <= 0.01 && isNight) ? 'PV ≈ 0 kW: sem sol (período noturno).' : '';
+              }
+              if (loadElL) {
+                const v = Number(eq.load_kw || 0);
+                loadElL.innerText = fmt(v, 2);
+                loadElL.title = (v <= 0.01) ? 'Carga ≈ 0 kW: período de baixa atividade.' : '';
+              }
+              if (gridElL) {
+                const v = Number(eq.grid_kw || 0);
+                gridElL.innerText = fmt(v, 2);
+                gridElL.title = (v <= 0.01) ? 'Rede ≈ 0 kW: consumo coberto por PV/bateria.' : 'Importando da rede (kW positivos).';
+              }
               document.getElementById('battery_kw').innerText = fmt(eq.battery_kw, 2);
               const soc = Math.max(0, Math.min(100, Number(eq.battery_soc || 0)));
               document.getElementById('battery_soc_bar').style.width = soc + '%';
@@ -688,14 +930,628 @@
           });
           evt.onerror = () => { /* keep trying; browser will auto-retry per retry header */ };
         }
+        return j;
       }
 
-      // Live feel: pulse badge and refresh more often
-      function pulseLive(){
-        const dot = document.getElementById('live-dot');
-        if(!dot) return;
-        dot.classList.toggle('on');
-      }
+      // Legend drawer handlers
+      (function(){
+        const drawer = document.getElementById('legend-drawer');
+        const backdrop = document.getElementById('legend-backdrop');
+        const toggle = document.getElementById('legend-toggle');
+        const closeBtn = document.getElementById('legend-close');
+        function openLegend(){
+          if(!drawer || !backdrop || !toggle) return;
+          drawer.classList.add('open');
+          drawer.setAttribute('aria-hidden','false');
+          toggle.setAttribute('aria-expanded','true');
+          backdrop.hidden = false;
+          document.body.classList.add('no-scroll');
+        }
+        function closeLegend(){
+          if(!drawer || !backdrop || !toggle) return;
+          drawer.classList.remove('open');
+          drawer.setAttribute('aria-hidden','true');
+          toggle.setAttribute('aria-expanded','false');
+          backdrop.hidden = true;
+          document.body.classList.remove('no-scroll');
+        }
+        function toggleLegend(){
+          if(drawer?.classList.contains('open')) closeLegend(); else openLegend();
+        }
+        toggle?.addEventListener('click', toggleLegend);
+        backdrop?.addEventListener('click', closeLegend);
+        closeBtn?.addEventListener('click', closeLegend);
+        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeLegend(); });
+      })();
+
+      // Voice control (Annyang first, Web Speech fallback) with overlay focus
+      (function(){
+        const btn = document.getElementById('voice-btn');
+        const overlay = document.getElementById('voice-overlay');
+        const transcriptEl = document.getElementById('voice-transcript');
+  const cancelBtn = document.getElementById('voice-cancel');
+        const applyBtn = document.getElementById('voice-apply');
+  const voiceStatus = document.getElementById('voice-status');
+  const testBtn = document.getElementById('voice-test');
+  const engineSel = document.getElementById('voice-engine');
+  const hotwordToggle = document.getElementById('hotword-toggle');
+  const waveEl = document.querySelector('.voice-wave');
+  const bars = waveEl ? Array.from(waveEl.querySelectorAll('.voice-bar')) : [];
+  let micStream = null, audioCtx = null, analyser = null, micTimer = null;
+  // Hotword state
+  let hotwordActive = false, hotwordRec = null, hotwordTimer = null;
+  // Vosk state
+  let voskModel = null, voskRecognizer = null, voskWorker = null, voskProcessor = null, voskReady = false, voskLoading = false;
+  // Domain vocabulary to reinforce recognition (used by Vosk and Web Speech grammar)
+  const DOMAIN_VOCAB = [
+    // fontes
+    'ao vivo','tempo real','banco','sqlite','db','csv','simulação','simulacao','modo simulação','modo simulacao',
+    // algoritmos
+    'random forest','floresta','regressão linear','regressao linear','linear','ridge','rídge','ridji','lasso','laço','laco',
+    // modos
+    'econômico','economico','economia','conforto','normal',
+    // sliders e termos
+    'fator de carga','carga','pv','limite de bateria','bateria','kilowatt','kw','soc mínimo','soc minimo','soc inicial',
+    // ações ui
+    'abrir legenda','fechar legenda','mostrar legenda','esconder legenda','exibir legenda','ocultar legenda',
+    'exportar','baixar','download','exportar csv','baixar csv',
+    // metas
+    'quero economizar','reais','real','por mês','por mes','por dia','r$',
+  ];
+        const goalInp = document.getElementById('goal');
+        const modeSel = document.getElementById('mode');
+        const sourceSel = document.getElementById('source');
+        const algoSel = document.getElementById('algo');
+        const socMin = document.getElementById('soc_min');
+        const simFactor = document.getElementById('sim_factor');
+        const simPv = document.getElementById('sim_pv');
+        const simBatt = document.getElementById('sim_batt');
+        const simSoc = document.getElementById('sim_soc');
+        const legendDrawer = document.getElementById('legend-drawer');
+        const legendBackdrop = document.getElementById('legend-backdrop');
+        const legendToggle = document.getElementById('legend-toggle');
+        const exportLink = document.getElementById('export_link');
+        if (!btn) return;
+  let active = false;
+  let manualStop = false;
+
+        async function setActive(on){
+          active = on;
+          btn.classList.toggle('listening', !!on);
+          document.body.classList.toggle('voice-active', !!on);
+          if (overlay) {
+            overlay.classList.toggle('show', !!on);
+            overlay.setAttribute('aria-hidden', on ? 'false' : 'true');
+          }
+          if (!on && transcriptEl) {
+            transcriptEl.textContent = 'Fale seu comando…';
+            transcriptEl.classList.add('voice-placeholder');
+          }
+          if (!on && voiceStatus){ voiceStatus.textContent = ''; }
+          if (!on) stopMicTest();
+          // When activating and using Vosk, show cached status and pre-load if necessary
+          if (on && usingVosk()) {
+            try {
+              const r = await fetch('/api/vosk/status');
+              if (r.ok) {
+                const s = await r.json();
+                if (s.exists) {
+                  const mb = (s.size/1024/1024).toFixed(1);
+                  if (voiceStatus) voiceStatus.textContent = `Modelo em cache (${mb} MB). Iniciando…`;
+                } else {
+                  if (voiceStatus) voiceStatus.textContent = 'Baixando modelo PT‑BR (~50MB) pela primeira vez…';
+                }
+              }
+            } catch {}
+            if (!voskReady && !voskLoading) loadVoskModel();
+          }
+        }
+
+        async function startMicTest(){
+          try {
+            stopMicTest();
+            const stream = await (navigator.mediaDevices?.getUserMedia?.({ audio: true }) || Promise.reject('Sem mediaDevices'));
+            micStream = stream;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const src = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            const tick = ()=>{
+              if (!analyser) return;
+              analyser.getByteTimeDomainData(data);
+              let sum = 0;
+              for (let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
+              const rms = Math.sqrt(sum/data.length);
+              const h = Math.min(1, rms*3);
+              bars.forEach((b,idx)=>{
+                const factor = 0.6 + 0.4*Math.sin((performance.now()/200)+(idx*0.8));
+                const pct = Math.max(6, Math.min(96, (h*100*factor)));
+                b.style.height = pct + '%';
+              });
+              if (voiceStatus) voiceStatus.textContent = 'Teste de microfone ativo: fale e observe as barras.';
+              micTimer = requestAnimationFrame(tick);
+            };
+            micTimer = requestAnimationFrame(tick);
+          } catch (e) {
+            if (voiceStatus) voiceStatus.textContent = 'Falha ao acessar o microfone. Verifique permissões e dispositivo padrão.';
+            console.warn('mic test error', e);
+          }
+        }
+        function stopMicTest(){
+          if (micTimer) { cancelAnimationFrame(micTimer); micTimer = null; }
+          if (analyser) { try { analyser.disconnect(); } catch {} analyser = null; }
+          if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
+          if (micStream) { try { micStream.getTracks().forEach(t=>t.stop()); } catch {} micStream = null; }
+          // Reset bars to CSS animation heights
+          bars.forEach(b=>{ b.style.height = ''; });
+        }
+
+        // Vosk integration
+        async function loadVoskModel(){
+          if (voskLoading || voskReady) return;
+          try {
+            voskLoading = true;
+            if (!window.Vosk) throw new Error('Vosk não disponível');
+            // PT-BR compact model via same-origin proxy to avoid CORS
+            const modelUrl = '/api/vosk/model';
+            voiceStatus.textContent = 'Baixando modelo PT‑BR (~50MB)…';
+            // vosk-browser loader
+            const { Vosk } = window;
+            voskWorker = await Vosk.createModel(modelUrl);
+            voskModel = voskWorker;
+            // Try to set grammar if recognizer-like API present later
+            voskReady = true;
+            voiceStatus.textContent = 'Modelo PT‑BR pronto.';
+          } catch (e) {
+            console.warn('vosk load error', e);
+            voiceStatus.textContent = 'Falha ao baixar/carregar o modelo Vosk.';
+          } finally {
+            voskLoading = false;
+          }
+        }
+
+        async function startVoskRecognition(){
+          try {
+            if (!voskReady) await loadVoskModel();
+            if (!voskReady) return;
+            // Setup audio
+            stopMicTest();
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const source = audioCtx.createMediaStreamSource(micStream);
+            const node = audioCtx.createScriptProcessor(4096, 1, 1);
+            node.onaudioprocess = (e) => {
+              const input = e.inputBuffer.getChannelData(0);
+              // Convert Float32 to 16-bit PCM
+              const pcm16 = new Int16Array(input.length);
+              for (let i=0;i<input.length;i++) {
+                let s = Math.max(-1, Math.min(1, input[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+              voskModel.acceptWaveform(pcm16);
+            };
+            source.connect(node);
+            node.connect(audioCtx.destination);
+            voskProcessor = node;
+
+            // Apply domain grammar if supported
+            try {
+              if (voskModel && typeof voskModel.setGrammar === 'function') {
+                voskModel.setGrammar(DOMAIN_VOCAB);
+              } else if (voskModel && typeof voskModel.updateGrammar === 'function') {
+                voskModel.updateGrammar(DOMAIN_VOCAB);
+              }
+            } catch {}
+            // Read results
+            voskModel.on('result', (msg) => {
+              if (msg?.text) {
+                transcriptEl.textContent = msg.text;
+                transcriptEl.classList.remove('voice-placeholder');
+                parseVoiceCommand(msg.text);
+              }
+            });
+            voskModel.on('partialresult', (msg) => {
+              if (msg?.partial) {
+                transcriptEl.textContent = msg.partial;
+                transcriptEl.classList.remove('voice-placeholder');
+              }
+            });
+          } catch (e) {
+            console.warn('vosk start error', e);
+            voiceStatus.textContent = 'Erro ao iniciar Vosk. Verifique permissões e compatibilidade.';
+          }
+        }
+
+        function stopVoskRecognition(){
+          try {
+            if (voskProcessor) { voskProcessor.disconnect(); voskProcessor = null; }
+            if (audioCtx) { /* keep ctx for reuse */ }
+            if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+            if (voskModel && voskModel.reset) voskModel.reset();
+          } catch {}
+        }
+        function setValueAndDispatch(el, value){
+          if (!el) return;
+          el.value = String(value);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        function numberFromPt(t){
+          const m = t.match(/(\d+[\.,]?\d*)/);
+          if (m) return parseFloat(m[1].replace(',', '.'));
+          const map = { 'zero':0,'um':1,'uma':1,'dois':2,'duas':2,'três':3,'tres':3,'quatro':4,'cinco':5,'seis':6,'sete':7,'oito':8,'nove':9,'dez':10 };
+          let s = t.replace(/vírgula|virgula/g,' . ').replace(/ponto/g,' . ').split(/\s+/).map(w=>w.trim()).filter(Boolean);
+          let buf = [];
+          for (const w of s){
+            if (w === '.') { buf.push('.'); continue; }
+            if (map[w] != null) buf.push(String(map[w]));
+            else if (/^\d+$/.test(w)) buf.push(w);
+          }
+          if (buf.length){
+            const n = parseFloat(buf.join(''));
+            if (!isNaN(n)) return n;
+          }
+          return null;
+        }
+        function hasAny(t, words){ return words.some(w => t.includes(w)); }
+        function matchAny(t, patterns){
+          // patterns can be strings or regex
+          return patterns.some(p => {
+            if (typeof p === 'string') return t.includes(p);
+            try { return p.test(t); } catch { return false; }
+          });
+        }
+        function openLegend(){
+          if (!legendDrawer || !legendBackdrop) return;
+          legendDrawer.classList.add('open');
+          legendDrawer.setAttribute('aria-hidden','false');
+          legendBackdrop.hidden = false;
+          legendToggle?.setAttribute('aria-expanded','true');
+          document.body.classList.add('no-scroll');
+        }
+        function closeLegend(){
+          if (!legendDrawer || !legendBackdrop) return;
+          legendDrawer.classList.remove('open');
+          legendDrawer.setAttribute('aria-hidden','true');
+          legendBackdrop.hidden = true;
+          legendToggle?.setAttribute('aria-expanded','false');
+          document.body.classList.remove('no-scroll');
+        }
+        function showToast(msg){
+          try{
+            let t = document.getElementById('toast');
+            if(!t){ t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+            t.textContent = msg; t.className = 'show';
+            setTimeout(()=>{ t.classList.remove('show'); }, 1800);
+          }catch{}
+        }
+        function parseVoiceCommand(text){
+          const t = (text||'').toLowerCase();
+          if (transcriptEl) { transcriptEl.textContent = text || '…'; transcriptEl.classList.remove('voice-placeholder'); }
+          let changed = false;
+
+          // Fonte
+          if (matchAny(t, ['ao vivo','live','tempo real','real time','usar ao vivo','ativar ao vivo','colocar ao vivo'])) { setValueAndDispatch(sourceSel, 'live'); showToast('Fonte: Ao vivo'); changed = true; }
+          else if (matchAny(t, ['banco','sqlite','db','usar banco','usar sqlite','fonte banco'])) { setValueAndDispatch(sourceSel, 'db'); showToast('Fonte: Banco'); changed = true; }
+          else if (matchAny(t, ['csv','usar csv','fonte csv'])) { setValueAndDispatch(sourceSel, 'csv'); showToast('Fonte: CSV'); changed = true; }
+          else if (matchAny(t, ['simulação','simulacao','modo simulação','modo simulacao','mudar para simulação','mudar para simulacao','ativar simulação','ativar simulacao','usar simulação','usar simulacao'])) { setValueAndDispatch(sourceSel, 'sim'); showToast('Fonte: Simulação'); changed = true; }
+
+          // Algoritmo
+          const ridgeHints = ['ridge','rigde','rídge','ridji','rigi','ridi','heedge','hídi','reede','ride'];
+          const lassoHints = ['lasso','laço','laco','lassu','lassou'];
+          if (matchAny(t, ['automático','automatico','modo automático','modo automatico','algoritmo automático','algoritmo automatico'])) { setValueAndDispatch(algoSel, 'auto'); showToast('Algoritmo: Automático'); changed = true; }
+          else if (matchAny(t, ['random forest','floresta','usar random forest','colocar random forest'])) { setValueAndDispatch(algoSel, 'rf'); showToast('Algoritmo: Floresta Aleatória'); changed = true; }
+          else if (matchAny(t, ['linear','regressão linear','regressao linear','usar linear','colocar linear'])) { setValueAndDispatch(algoSel, 'linear'); showToast('Algoritmo: Linear'); changed = true; }
+          else if (matchAny(t, ridgeHints)) { setValueAndDispatch(algoSel, 'ridge'); showToast('Algoritmo: Ridge'); changed = true; }
+          else if (matchAny(t, lassoHints)) { setValueAndDispatch(algoSel, 'lasso'); showToast('Algoritmo: Lasso'); changed = true; }
+
+          // Modo
+          if (matchAny(t, ['econômico','economico','economia','modo econômico','modo economico','ativar econômico','ativar economico'])) { setValueAndDispatch(modeSel, 'economico'); showToast('Modo: Econômico'); changed = true; }
+          else if (matchAny(t, ['conforto','modo conforto','ativar conforto'])) { setValueAndDispatch(modeSel, 'conforto'); showToast('Modo: Conforto'); changed = true; }
+          else if (matchAny(t, ['normal','modo normal','ativar normal'])) { setValueAndDispatch(modeSel, 'normal'); showToast('Modo: Normal'); changed = true; }
+
+          // Meta (R$ por mês/dia)
+          const amt = numberFromPt(t);
+          if (amt != null && hasAny(t, ['real','reais','r$','meta','economizar','economia'])){
+            const isMonth = hasAny(t, ['mês','mes','mensal']);
+            if (goalInp) { goalInp.value = isMonth ? `R$ ${amt.toFixed(2)} por mês` : `R$ ${amt.toFixed(2)} por dia`; showToast(`Meta: ${goalInp.value}`); }
+            changed = true;
+          }
+
+          // SOC mínimo (voice-only control; slider removed)
+          if (matchAny(t, ['soc mínimo','soc minimo','nível mínimo','nivel minimo','mínimo de soc','minimo de soc','ajustar soc mínimo','definir soc mínimo','soc no mínimo'])){
+            const p = amt != null ? Math.max(0, Math.min(80, Math.round(amt))) : null; // range 0-80
+            if (p != null) { setValueAndDispatch(socMin, p); showToast(`SOC mínimo: ${p}%`); changed = true; }
+          }
+
+          // Simulação sliders
+          if (matchAny(t, ['fator de carga','carga','ajustar carga','definir carga'])){
+            const v = amt != null ? Math.max(0.5, Math.min(1.5, parseFloat(amt))) : null;
+            if (v != null) { setValueAndDispatch(simFactor, v); showToast(`Fator carga: ${v}`); changed = true; }
+          }
+          if (matchAny(t, ['pv','ajustar pv','definir pv'])){
+            const v = amt != null ? Math.max(0.5, Math.min(2.0, parseFloat(amt))) : null;
+            if (v != null) { setValueAndDispatch(simPv, v); showToast(`PV: ${v}x`); changed = true; }
+          }
+          if (matchAny(t, ['limite de bateria','bateria kilowatt','bateria kw','ajustar limite de bateria','definir limite de bateria'])){
+            const v = amt != null ? Math.max(0.0, Math.min(5.0, parseFloat(amt))) : null;
+            if (v != null) { setValueAndDispatch(simBatt, v); showToast(`Limite bateria: ${v} kW`); changed = true; }
+          }
+          if (matchAny(t, ['soc inicial','inicial','definir soc inicial','ajustar soc inicial'])){
+            const v = amt != null ? Math.max(0, Math.min(100, Math.round(amt))) : null;
+            if (v != null) { setValueAndDispatch(simSoc, v); showToast(`SOC inicial: ${v}%`); changed = true; }
+          }
+
+          // Navegação de telas
+          if (matchAny(t, ['técnica','tecnica','tela técnica','tela tecnica','painel técnico','painel tecnico','ir para técnica','ir para tecnico'])) { if (typeof navigateToTechnical === 'function') navigateToTechnical(); }
+          if (matchAny(t, ['home','inicial','página inicial','pagina inicial','voltar para home'])) { if (typeof navigateToHome === 'function') navigateToHome(); }
+
+          // Legenda
+          if (matchAny(t, ['abrir legenda','mostrar legenda','exibir legenda'])) { openLegend(); }
+          if (matchAny(t, ['fechar legenda','esconder legenda','ocultar legenda'])) { closeLegend(); }
+
+          // Exportar CSV (evita conflito com comando de fonte 'csv')
+          if (matchAny(t, ['exportar','baixar','download','exportar csv','baixar csv'])) { exportLink?.click(); }
+
+          if (changed) {
+            // fetch updates and then gracefully stop listening after short delay
+            fetchDashboard();
+            setTimeout(()=>{
+              try {
+                if (usingVosk()) { manualStop = true; stopVoskRecognition(); }
+                else if (window.annyang) { manualStop = true; window.annyang.abort(); }
+              } catch {}
+              setActive(false);
+            }, 600);
+          }
+        }
+
+        // Load persisted settings (engine + hotword)
+        try {
+          const savedEngine = localStorage.getItem('voice.engine');
+          if (engineSel && savedEngine && (savedEngine === 'auto' || savedEngine === 'vosk')) {
+            engineSel.value = savedEngine;
+          }
+          const savedHotword = localStorage.getItem('voice.hotword');
+          if (hotwordToggle && (savedHotword === 'true' || savedHotword === 'false')) {
+            hotwordToggle.checked = (savedHotword === 'true');
+          }
+        } catch {}
+
+        function usingVosk(){ return engineSel && engineSel.value === 'vosk'; }
+        engineSel?.addEventListener('change', ()=>{
+          if (active) {
+            if (usingVosk()) {
+              // switch to vosk
+              manualStop = false; stopMicTest(); stopVoskRecognition(); startVoskRecognition();
+            } else {
+              // will fall back to annyang/webspeech; stop vosk
+              stopVoskRecognition();
+            }
+          }
+          if (usingVosk() && !voskReady && !voskLoading) loadVoskModel();
+          try { localStorage.setItem('voice.engine', engineSel.value); } catch {}
+        });
+        hotwordToggle?.addEventListener('change', ()=>{
+          try { localStorage.setItem('voice.hotword', String(!!hotwordToggle.checked)); } catch {}
+        });
+
+        if (window.annyang && !usingVosk()) {
+          try {
+            window.annyang.setLanguage('pt-BR');
+            window.annyang.addCallback('result', (phrases)=>{
+              if (phrases && phrases.length && transcriptEl) {
+                transcriptEl.textContent = phrases[0];
+                transcriptEl.classList.remove('voice-placeholder');
+              }
+            });
+            window.annyang.addCallback('error', (err)=>{
+              console.warn('annyang error', err);
+              if (transcriptEl) {
+                transcriptEl.textContent = 'Não foi possível capturar áudio. Verifique a permissão do microfone.';
+                transcriptEl.classList.remove('voice-placeholder');
+              }
+            });
+            window.annyang.addCallback('end', ()=>{
+              // Mantém ativo e tenta reiniciar se usuário não parou manualmente
+              if (active && !manualStop) {
+                try { window.annyang.start({ autoRestart: true, continuous: true }); } catch {}
+              }
+            });
+            const commands = {
+              'ao vivo': () => { setValueAndDispatch(sourceSel,'live'); showToast('Fonte: Ao vivo'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'usar ao vivo': () => { setValueAndDispatch(sourceSel,'live'); showToast('Fonte: Ao vivo'); fetchDashboard(); },
+              'simulação': () => { setValueAndDispatch(sourceSel,'sim'); showToast('Fonte: Simulação'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'modo simulação': () => { setValueAndDispatch(sourceSel,'sim'); showToast('Fonte: Simulação'); fetchDashboard(); },
+              'banco': () => { setValueAndDispatch(sourceSel,'db'); showToast('Fonte: Banco'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'csv': () => { setValueAndDispatch(sourceSel,'csv'); showToast('Fonte: CSV'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'modo econômico': () => { setValueAndDispatch(modeSel,'economico'); showToast('Modo: Econômico'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'modo conforto': () => { setValueAndDispatch(modeSel,'conforto'); showToast('Modo: Conforto'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'modo normal': () => { setValueAndDispatch(modeSel,'normal'); showToast('Modo: Normal'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'random forest': () => { setValueAndDispatch(algoSel,'rf'); showToast('Algoritmo: Floresta Aleatória'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'regressão linear': () => { setValueAndDispatch(algoSel,'linear'); showToast('Algoritmo: Linear'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'ridge': () => { setValueAndDispatch(algoSel,'ridge'); showToast('Algoritmo: Ridge'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'rídge': () => { setValueAndDispatch(algoSel,'ridge'); showToast('Algoritmo: Ridge'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'ridji': () => { setValueAndDispatch(algoSel,'ridge'); showToast('Algoritmo: Ridge'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'laço': () => { setValueAndDispatch(algoSel,'lasso'); showToast('Algoritmo: Lasso'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'laco': () => { setValueAndDispatch(algoSel,'lasso'); showToast('Algoritmo: Lasso'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'lasso': () => { setValueAndDispatch(algoSel,'lasso'); showToast('Algoritmo: Lasso'); fetchDashboard(); setTimeout(()=>{ manualStop=true; window.annyang.abort(); setActive(false); }, 600); },
+              'abrir legenda': () => openLegend(),
+              'fechar legenda': () => closeLegend(),
+              'tela técnica': () => { if (typeof navigateToTechnical==='function') navigateToTechnical(); },
+              'home': () => { if (typeof navigateToHome==='function') navigateToHome(); },
+              'exportar csv': () => { exportLink?.click(); },
+            };
+            commands['quero economizar :value reais por mês'] = (value)=>{ const n=numberFromPt(String(value)); if(!isNaN(n)){ goalInp.value=`R$ ${n.toFixed(2)} por mês`; showToast(`Meta: ${goalInp.value}`); fetchDashboard(); } };
+            commands['quero economizar :value reais por dia'] = (value)=>{ const n=numberFromPt(String(value)); if(!isNaN(n)){ goalInp.value=`R$ ${n.toFixed(2)} por dia`; showToast(`Meta: ${goalInp.value}`); fetchDashboard(); } };
+            commands['soc mínimo :value'] = (value)=>{ const n=numberFromPt(String(value)); if(n!=null){ const p=Math.max(0,Math.min(80,Math.round(n))); setValueAndDispatch(socMin,p); showToast(`SOC mínimo: ${p}%`);} };
+            commands['fator de carga :value'] = (value)=>{ const n=numberFromPt(String(value)); if(n!=null){ const v=Math.max(0.5,Math.min(1.5,parseFloat(n))); setValueAndDispatch(simFactor,v); showToast(`Fator carga: ${v}`);} };
+            commands['pv :value'] = (value)=>{ const n=numberFromPt(String(value)); if(n!=null){ const v=Math.max(0.5,Math.min(2.0,parseFloat(n))); setValueAndDispatch(simPv,v); showToast(`PV: ${v}x`);} };
+            commands['limite de bateria :value'] = (value)=>{ const n=numberFromPt(String(value)); if(n!=null){ const v=Math.max(0.0,Math.min(5.0,parseFloat(n))); setValueAndDispatch(simBatt,v); showToast(`Limite bateria: ${v} kW`);} };
+            commands['soc inicial :value'] = (value)=>{ const n=numberFromPt(String(value)); if(n!=null){ const v=Math.max(0,Math.min(100,Math.round(n))); setValueAndDispatch(simSoc,v); showToast(`SOC inicial: ${v}%`);} };
+            window.annyang.addCommands(commands);
+            // Optional export ranges
+            commands['exportar última semana'] = ()=>{ const a=document.getElementById('export_link'); if(a){ const u=new URL(a.href, window.location.origin); u.searchParams.set('range','7d'); a.href=u.toString(); a.click(); showToast('Exportando: 7 dias'); } };
+            commands['exportar últimas 24 horas'] = ()=>{ const a=document.getElementById('export_link'); if(a){ const u=new URL(a.href, window.location.origin); u.searchParams.set('range','24h'); a.href=u.toString(); a.click(); showToast('Exportando: 24h'); } };
+            commands['exportar último mês'] = ()=>{ const a=document.getElementById('export_link'); if(a){ const u=new URL(a.href, window.location.origin); u.searchParams.set('range','30d'); a.href=u.toString(); a.click(); showToast('Exportando: 30 dias'); } };
+            btn.addEventListener('click', async ()=>{
+              if (!active){
+                manualStop = false; stopMicTest();
+                if (usingVosk()) { if (!voskReady && !voskLoading) await loadVoskModel(); startVoskRecognition(); setActive(true); }
+                else { window.annyang.start({ autoRestart: true, continuous: true }); setActive(true); }
+              } else {
+                manualStop = true;
+                if (usingVosk()) { stopVoskRecognition(); }
+                else { window.annyang.abort(); }
+                setActive(false);
+              }
+            });
+            cancelBtn?.addEventListener('click', ()=>{ manualStop = true; window.annyang.abort(); setActive(false); });
+            applyBtn?.addEventListener('click', ()=>{ manualStop = true; window.annyang.abort(); setActive(false); });
+            document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && active){ manualStop = true; window.annyang.abort(); setActive(false); } });
+            testBtn?.addEventListener('click', ()=>{ if (active) { manualStop = true; window.annyang.abort(); } startMicTest(); });
+            // Hotword handling (Web Speech only). For security, we avoid background mic if Vosk engine is selected.
+            function ensureHotword(){
+              if (!hotwordToggle?.checked) return stopHotword();
+              if (usingVosk()) { hotwordToggle.title = 'Hotword indisponível no modo offline (Vosk)'; return stopHotword(); }
+              const SpeechRecognition = (window.SpeechRecognition || window.webkitSpeechRecognition);
+              if (!SpeechRecognition) return;
+              if (active) return; // don't listen for hotword when overlay is active
+              if (hotwordRec) return;
+              hotwordRec = new SpeechRecognition();
+              hotwordRec.lang = 'pt-BR';
+              hotwordRec.continuous = true;
+              hotwordRec.interimResults = true;
+              hotwordRec.onresult = (ev)=>{
+                let txt = '';
+                for (let i = ev.resultIndex; i < ev.results.length; i++) {
+                  const res = ev.results[i];
+                  const phrase = res[0].transcript.toLowerCase();
+                  txt += ' ' + phrase;
+                  if (phrase.includes('ok microrrede') || phrase.includes('ok micro rede') || phrase.includes('ok microrede') || phrase.includes('ok microrred')) {
+                    // Activate overlay and main recognition
+                    stopHotword();
+                    setActive(true);
+                    try { window.annyang.start({ autoRestart: false, continuous: true }); } catch {}
+                    break;
+                  }
+                }
+              };
+              hotwordRec.onend = ()=>{ if (hotwordActive && !active) { try { hotwordRec.start(); } catch {} } };
+              try { hotwordRec.start(); hotwordActive = true; } catch {}
+            }
+            function stopHotword(){
+              hotwordActive = false;
+              try { hotwordRec?.stop(); } catch {}
+              hotwordRec = null;
+            }
+            hotwordToggle?.addEventListener('change', ()=>{ if (hotwordToggle.checked) ensureHotword(); else stopHotword(); });
+            document.addEventListener('visibilitychange', ()=>{ if (document.hidden) stopHotword(); else ensureHotword(); });
+            // Resume/stop hotword based on overlay
+            const oldSetActive = setActive;
+            setActive = function(on){
+              oldSetActive(on);
+              if (on) stopHotword(); else ensureHotword();
+            };
+            // Start hotword if enabled on load
+            if (hotwordToggle?.checked) ensureHotword();
+          } catch (e) {
+            console.warn('annyang init failed', e);
+          }
+        } else {
+          if (usingVosk()) {
+            // Pure vosk path when chosen and annyang not used
+            btn.addEventListener('click', ()=>{ if (!active){ manualStop=false; stopMicTest(); startVoskRecognition(); setActive(true);} else { manualStop=true; stopVoskRecognition(); setActive(false);} });
+            cancelBtn?.addEventListener('click', ()=>{ manualStop=true; stopVoskRecognition(); setActive(false); });
+            applyBtn?.addEventListener('click', ()=>{ manualStop=true; stopVoskRecognition(); setActive(false); });
+            testBtn?.addEventListener('click', ()=>{ if (active) { manualStop = true; stopVoskRecognition(); } startMicTest(); });
+            return;
+          }
+          const SpeechRecognition = (window.SpeechRecognition || window.webkitSpeechRecognition);
+          if (!SpeechRecognition) { btn.disabled = true; btn.title = 'Reconhecimento de voz não suportado neste navegador'; return; }
+          const rec = new SpeechRecognition();
+          rec.lang = 'pt-BR';
+          rec.continuous = true;
+          rec.interimResults = false;
+          try {
+            rec.interimResults = true;
+          } catch {}
+          try {
+            const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+            if (SpeechGrammarList) {
+              const fonte = 'ao vivo | tempo real | simulação | simulacao | csv | banco | sqlite | db';
+              const modo = 'econômico | economico | conforto | normal | economia';
+              const algo = 'random forest | regressão linear | regressao linear | linear | ridge | rídge | ridji | lasso | laço | laco';
+              const extras = 'abrir legenda | fechar legenda | exportar | baixar | download | exportar csv | baixar csv | fator de carga | pv | limite de bateria | soc mínimo | soc minimo | soc inicial | quero economizar';
+              const grammar = `#JSGF V1.0; grammar cmds; public <cmd> = (${fonte}) | (${modo}) | (${algo}) | (${extras});`;
+              const list = new SpeechGrammarList();
+              list.addFromString(grammar, 1);
+              rec.grammars = list;
+            }
+          } catch {}
+          btn.addEventListener('click', ()=>{ if (!active){ manualStop=false; stopMicTest(); rec.start(); setActive(true);} else { manualStop=true; rec.stop(); setActive(false);} });
+          rec.onresult = (ev)=>{
+            let finalText = '';
+            let interim = '';
+            for (let i = ev.resultIndex; i < ev.results.length; i++) {
+              const res = ev.results[i];
+              if (res.isFinal) finalText += res[0].transcript + ' ';
+              else interim += res[0].transcript + ' ';
+            }
+            if (interim && transcriptEl) { transcriptEl.textContent = interim.trim(); transcriptEl.classList.remove('voice-placeholder'); }
+            if (finalText) {
+              const applied = parseVoiceCommand(finalText.trim());
+              if (applied) {
+                setTimeout(()=>{ try{ manualStop = true; rec.stop(); }catch{} setActive(false); }, 600);
+              }
+            }
+          };
+          async function diagnoseAudio(e){
+            let lines = [];
+            lines.push('Erro de áudio. Vamos diagnosticar:');
+            try {
+              const perm = await navigator.permissions?.query?.({ name: 'microphone' });
+              if (perm) lines.push(`Permissão microfone: ${perm.state}`);
+            } catch {}
+            try {
+              const devices = await navigator.mediaDevices?.enumerateDevices?.();
+              if (devices) {
+                const inputs = devices.filter(d=>d.kind==='audioinput');
+                lines.push(`Entradas de áudio: ${inputs.length}` + (inputs.length?` (${inputs.map(d=>d.label||'microfone').join(', ')})`:''));
+              }
+            } catch {}
+            if (e?.error) lines.push(`Código de erro: ${e.error}`);
+            if (e?.message) lines.push(`Mensagem: ${e.message}`);
+            if (voiceStatus) voiceStatus.textContent = lines.join('\n');
+          }
+          rec.onerror = (e)=>{
+            console.warn('speech error', e);
+            if (transcriptEl) {
+              transcriptEl.textContent = 'Erro de áudio. Permita o microfone ou tente novamente.';
+              transcriptEl.classList.remove('voice-placeholder');
+            }
+            diagnoseAudio(e);
+            // Só encerra se foi bloqueio explícito
+            if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+              manualStop = true; setActive(false);
+            }
+          };
+          rec.onend = ()=>{
+            // Reinicia automaticamente se ainda ativo e não houve parada manual
+            if (active && !manualStop) {
+              try { rec.start(); } catch {}
+            } else {
+              setActive(false);
+            }
+          };
+          cancelBtn?.addEventListener('click', ()=>{ manualStop=true; rec.stop(); setActive(false); });
+          applyBtn?.addEventListener('click', ()=>{ manualStop=true; rec.stop(); setActive(false); });
+          testBtn?.addEventListener('click', ()=>{ if (active) { manualStop = true; rec.stop(); } startMicTest(); });
+          document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && active){ manualStop=true; rec.stop(); setActive(false); } });
+        }
+      })();
 
       document.getElementById('source').addEventListener('change', () => {
         const sel = document.getElementById('source');
@@ -710,12 +1566,7 @@
   if (modeSel2) modeSel2.addEventListener('change', fetchDashboard);
   const goalInp2 = document.getElementById('goal');
   if (goalInp2) goalInp2.addEventListener('change', fetchDashboard);
-      const socMin2 = document.getElementById('soc_min');
-      const socMinLbl = document.getElementById('soc_min_label');
-      if (socMin2) {
-        socMin2.addEventListener('input', ()=>{ if (socMinLbl) socMinLbl.innerText = `${socMin2.value}%`; });
-        socMin2.addEventListener('change', fetchDashboard);
-      }
+      // SOC mínimo slider removed; voice-only control remains
       function updateExportLink(){
         const sel = document.getElementById('source');
         const a = document.getElementById('export_link');
@@ -739,7 +1590,33 @@
   fetchDashboard();
   updateExportLink();
   setInterval(fetchDashboard, 15000);
-      setInterval(pulseLive, 1000);
+  
+  // Peak notification ~45min before next peak (once per day)
+  (function(){
+    let notifiedKey = 'peak.notify.date';
+    function maybeNotifyPeak(costs){
+      try{
+        const npTs = costs?.next_peak_ts; if (!npTs) return;
+        const now = Date.now(); const t = new Date(npTs).getTime();
+        const mins = (t - now)/60000;
+        const today = new Date().toISOString().slice(0,10);
+        const already = localStorage.getItem(notifiedKey) === today;
+        if (!already && mins <= 45 && mins > 0){
+          let toast = document.getElementById('toast'); if(!toast){ toast=document.createElement('div'); toast.id='toast'; document.body.appendChild(toast); }
+          toast.textContent = 'Ponta em ~45min: preparando bateria e PV.'; toast.className='show';
+          setTimeout(()=>toast.classList.remove('show'), 3000);
+          localStorage.setItem(notifiedKey, today);
+        }
+      }catch{}
+    }
+    // hook into fetchDashboard results
+    const _fd = fetchDashboard;
+    window.fetchDashboard = async function(){
+      const res = await _fd();
+      try { const costs = res?.costs; maybeNotifyPeak(costs);} catch{}
+      return res;
+    }
+  })();
       window.addEventListener('resize', () => {
         Plotly.Plots.resize('consumption_plot');
         Plotly.Plots.resize('forecast_plot');
@@ -747,29 +1624,204 @@
         Plotly.Plots.resize('daily_plot');
       });
 
+      // Register service worker (offline-first)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', ()=>{
+          try { navigator.serviceWorker.register('/sw.js'); } catch {}
+        });
+      }
+
+      // Clock updater using server time when available
+      (function startClock(){
+        function fmt(d, seconds=false){
+          return d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second: seconds ? '2-digit' : undefined });
+        }
+        let baseline = null; // server timestamp
+        let baselineLocal = null; // local now when baseline sampled
+        function updateBaseline(){
+          const ts = window._lastDashboard?.kpis?.last_updated;
+          if (ts){ baseline = new Date(ts); baselineLocal = new Date(); }
+        }
+        function nowServer(){
+          if (baseline && baselineLocal){
+            const drift = Date.now() - baselineLocal.getTime();
+            return new Date(baseline.getTime() + drift);
+          }
+          return new Date();
+        }
+        function tick(){
+          updateBaseline();
+          const now = nowServer();
+          const top = document.getElementById('local-clock');
+          if (top) top.textContent = fmt(now, false);
+          const home = document.getElementById('home-local-time');
+          if (home) home.textContent = fmt(now, true);
+        }
+        tick();
+        setInterval(tick, 1000);
+      })();
+
+      // Alerts modal wiring
+      (function(){
+        const card = document.getElementById('home-alerts-card');
+        const backdrop = document.getElementById('alerts-backdrop');
+        const modal = document.getElementById('alerts-modal');
+        const body = document.getElementById('alerts-body');
+        const closeBtn = document.getElementById('alerts-close');
+        function open(){ backdrop.hidden = false; modal.hidden = false; }
+        function close(){ backdrop.hidden = true; modal.hidden = true; }
+        function render(list){
+          body.innerHTML = '';
+          if (!list || !list.length){ body.innerHTML = '<div class="alert none">Sem alertas.</div>'; return; }
+          list.forEach(a=>{
+            const div = document.createElement('div');
+            const level = a.level || a.severity || 'info';
+            div.className = 'alert ' + (level==='high'||level==='crit'?'crit':level==='warn'?'warn':'info');
+            div.textContent = a.message || a.text || JSON.stringify(a);
+            body.appendChild(div);
+          });
+        }
+        card?.addEventListener('click', ()=>{ render(window._lastDashboard?.alerts||[]); open(); });
+        backdrop?.addEventListener('click', close);
+        closeBtn?.addEventListener('click', close);
+        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
+      })();
+
+      // Cenários A/B helpers
+      function getCurrentParams(){
+        const sourceSel = document.getElementById('source');
+        const algoSel = document.getElementById('algo');
+        const modeSel = document.getElementById('mode');
+        const goalInp = document.getElementById('goal');
+        const socMin = document.getElementById('soc_min');
+        const p = new URLSearchParams();
+        if (sourceSel) p.set('source', sourceSel.value);
+        if (algoSel) p.set('algo', algoSel.value);
+        if (modeSel) p.set('mode', modeSel.value);
+        if (goalInp && goalInp.value) p.set('goal', goalInp.value);
+        if (socMin && socMin.value !== '' && isFinite(Number(socMin.value))) p.set('soc_min', socMin.value);
+        if (sourceSel?.value === 'sim'){
+          const f = document.getElementById('sim_factor');
+          const pv = document.getElementById('sim_pv');
+          const bl = document.getElementById('sim_batt');
+          const soc = document.getElementById('sim_soc');
+          if (f) p.set('factor', String(f.value));
+          if (pv) p.set('pv_factor', String(pv.value));
+          if (bl) p.set('batt_limit', String(bl.value));
+          if (soc) p.set('soc_init', String(soc.value));
+        }
+        return p.toString();
+      }
+
+      async function fetchDashboardWithParams(queryString){
+        const res = await fetch(`/api/dashboard?${queryString}`);
+        return await res.json();
+      }
+
+      function renderABResult(a, b){
+        const el = document.getElementById('ab_result'); if (!el) return;
+        if (!a || !b){ el.innerHTML = ''; return; }
+        function val(v, d=2){ return v==null? '—' : Number(v).toFixed(d); }
+        const aCost = a.costs||{}; const bCost = b.costs||{};
+        const aK = a.kpis||{}; const bK = b.kpis||{};
+        const rows = [];
+        const mk = (label, av, bv, unit='')=>{
+          const aNum = Number(av||0), bNum = Number(bv||0);
+          const diff = bNum - aNum; // B - A
+          const klass = diff<0? 'state-ok' : diff>0? 'state-crit' : '';
+          return `<div class="row" style="justify-content: space-between; gap:6px;">
+            <span>${label}</span>
+            <span>A: <strong>${val(aNum)}</strong>${unit} · B: <strong>${val(bNum)}</strong>${unit} <small class="badge ${klass}" title="B - A">Δ ${diff>=0?'+':''}${val(diff)}</small></span>
+          </div>`;
+        };
+        rows.push(mk('Custo hoje', aCost.today_cost, bCost.today_cost, ' R$'));
+        rows.push(mk('Últ. 24h', aCost.last24_cost, bCost.last24_cost, ' R$'));
+        rows.push(mk('Próx. 24h', aCost.forecast_cost_24h, bCost.forecast_cost_24h, ' R$'));
+        rows.push(mk('Pico 24h (kW)', a.kpis?.peak_24h_kw, b.kpis?.peak_24h_kw, ''));
+        rows.push(mk('MAE (kW)', a.metrics?.mae_test, b.metrics?.mae_test, ''));
+        el.innerHTML = rows.join('');
+      }
+
+      (function(){
+        const saveA = document.getElementById('ab_save_a');
+        const saveB = document.getElementById('ab_save_b');
+        const compare = document.getElementById('ab_compare');
+        const status = document.getElementById('ab_status');
+        function setStatus(t){ if (status) status.textContent = t; }
+        saveA?.addEventListener('click', ()=>{
+          const qs = getCurrentParams(); localStorage.setItem('ab.params.A', qs); setStatus('Cenário A salvo.');
+        });
+        saveB?.addEventListener('click', ()=>{
+          const qs = getCurrentParams(); localStorage.setItem('ab.params.B', qs); setStatus('Cenário B salvo.');
+        });
+        compare?.addEventListener('click', async ()=>{
+          const qa = localStorage.getItem('ab.params.A');
+          const qb = localStorage.getItem('ab.params.B');
+          if (!qa || !qb){ setStatus('Salve A e B primeiro.'); return; }
+          try{
+            setStatus('Comparando…');
+            const [a, b] = await Promise.all([fetchDashboardWithParams(qa), fetchDashboardWithParams(qb)]);
+            renderABResult(a,b);
+            setStatus('A/B pronto.');
+          }catch(e){ setStatus('Falha na comparação.'); }
+        });
+      })();
+
       function writeContextCubes(contextText, k, eq, costs){
-        setCube('ctx_main', contextText || '—');
+        // Minimal values for mini-cubes
         if (k) {
-          setCube('ctx_load', k.current_load_kw!=null? `${k.current_load_kw.toFixed(2)} kW (média 24h ${k.avg_24h_kw!=null? k.avg_24h_kw.toFixed(2) : '—'})` : '—');
+          setCube('ctx_load', k.current_load_kw!=null? `${k.current_load_kw.toFixed(2)} kW` : '—');
           setCube('ctx_temp', k.current_temp_c!=null? `${k.current_temp_c.toFixed(1)} °C` : '—');
+          // Color for load
+          const loadMini = document.getElementById('ctx_load')?.closest('.mini');
+          if (loadMini && k.current_load_kw!=null) {
+            loadMini.classList.remove('state-ok','state-warn','state-crit');
+            const v = k.current_load_kw;
+            loadMini.classList.add(v < 2 ? 'state-ok' : v < 4 ? 'state-warn' : 'state-crit');
+          }
+          // Color for temperature
+          const tempMini = document.getElementById('ctx_temp')?.closest('.mini');
+          if (tempMini && k.current_temp_c!=null) {
+            tempMini.classList.remove('state-ok','state-warn','state-crit');
+            const t = k.current_temp_c;
+            tempMini.classList.add((t>=18 && t<=28) ? 'state-ok' : (t>=15 && t<=32) ? 'state-warn' : 'state-crit');
+          }
         }
         if (eq) {
           setCube('ctx_pv', `${(eq.pv_kw??0).toFixed(2)} kW`);
-          const battFlow = (eq.battery_kw??0);
-          const battWord = battFlow>0? 'descarreg.' : battFlow<0? 'carreg.' : 'repouso';
-          setCube('ctx_batt', `${Math.abs(battFlow).toFixed(2)} kW (${battWord}) • SOC ${eq.battery_soc??0}%`);
+          const soc = eq.battery_soc;
+          setCube('ctx_batt', soc!=null ? `${soc}%` : `${Math.abs(eq.battery_kw??0).toFixed(2)} kW`);
           setCube('ctx_grid', `${(eq.grid_kw??0).toFixed(2)} kW`);
+          // Color for battery
+          const battMini = document.getElementById('ctx_batt')?.closest('.mini');
+          if (battMini && soc!=null) {
+            battMini.classList.remove('state-ok','state-warn','state-crit');
+            battMini.classList.add(soc > 40 ? 'state-ok' : soc >= 20 ? 'state-warn' : 'state-crit');
+          }
+          // Color for grid
+          const gridMini = document.getElementById('ctx_grid')?.closest('.mini');
+          if (gridMini && eq.grid_kw!=null) {
+            gridMini.classList.remove('state-ok','state-warn','state-crit');
+            const g = eq.grid_kw;
+            gridMini.classList.add(g < 1 ? 'state-ok' : g < 3 ? 'state-warn' : 'state-crit');
+          }
+          // Color for PV indicates ok when >0.2kW
+          const pvMini = document.getElementById('ctx_pv')?.closest('.mini');
+          if (pvMini && eq.pv_kw!=null) {
+            pvMini.classList.remove('state-ok','state-warn','state-crit');
+            pvMini.classList.add(eq.pv_kw > 0.2 ? 'state-ok' : 'state-warn');
+          }
         }
         if (costs) {
-          const rn = costs.rate_now!=null? `${costs.rate_now.toFixed(2)} R$/kWh` : '—';
-          const cnow = costs.current_cost!=null? `${costs.current_cost.toFixed(2)} R$/h` : '—';
-          const c24 = costs.forecast_cost_24h!=null? `${costs.forecast_cost_24h.toFixed(2)} R$` : '—';
-          const np = costs.next_peak_ts ? new Date(costs.next_peak_ts) : null;
-          const npStr = np ? `${String(np.getHours()).padStart(2,'0')}:${String(np.getMinutes()).padStart(2,'0')}` : '—';
-          let extras = '';
-          if (costs.today_cost != null) extras += ` • Hoje: R$ ${costs.today_cost.toFixed(2)}`;
-          if (costs.last24_cost != null) extras += ` • Últ.24h: R$ ${costs.last24_cost.toFixed(2)}`;
-          setCube('ctx_cost', `Tarifa agora: ${rn} • Inst.: ${cnow} • 24h: ${c24} • Próx. pico: ${npStr}${extras}`);
+          const today = costs.today_cost != null ? `R$ ${costs.today_cost.toFixed(2)}` : null;
+          const rate = costs.rate_now != null ? `R$ ${costs.rate_now.toFixed(2)}/kWh` : null;
+          setCube('ctx_cost', today || rate || '—');
+          const costMini = document.getElementById('ctx_cost')?.closest('.mini');
+          if (costMini && costs.rate_now!=null) {
+            costMini.classList.remove('state-ok','state-warn','state-crit');
+            const r = costs.rate_now;
+            costMini.classList.add(r < 0.8 ? 'state-ok' : r < 1.2 ? 'state-warn' : 'state-crit');
+          }
         }
       }
 
@@ -841,23 +1893,15 @@
         } catch {}
       }
 
-      // Sidebar alignment: start aligned with first row, stick after passing topbar
+      // Sidebar alignment (simplified): avoid overlaps and dynamic measurements
       function computeSidebarOffset(){
+        document.documentElement.style.setProperty('--sidebar-offset', '0px');
+        const tabs = document.querySelector('.global-tabs');
+        const tabsH = tabs ? tabs.getBoundingClientRect().height : 0;
+        document.documentElement.style.setProperty('--tabs-height', tabsH + 'px');
         const topbar = document.querySelector('.topbar');
-        const firstRow = document.querySelector('.main-col .grid.two');
-        const sidebar = document.querySelector('.sidebar');
-        if (!topbar || !firstRow || !sidebar) return;
-        const tb = topbar.getBoundingClientRect();
-        const fr = firstRow.getBoundingClientRect();
-        // Distance from top of main content to top of first row
-        const docTop = window.scrollY;
-        const shell = document.querySelector('.shell');
-        const shellRect = shell?.getBoundingClientRect();
-        const shellTop = shellRect ? (shellRect.top + window.scrollY) : 0;
-        const firstRowTop = fr.top + window.scrollY;
-        const initialOffset = Math.max(0, (firstRowTop - shellTop) - 20); // raise ~20px
-        const stickyTop = tb.height + 10; // allow tiny gap under topbar
-        document.documentElement.style.setProperty('--sidebar-offset', initialOffset + 'px');
+        const topbarH = topbar ? topbar.getBoundingClientRect().height : 62;
+        const stickyTop = tabsH + topbarH + 8; // tabs + topbar + gap
         document.documentElement.style.setProperty('--sticky-top', stickyTop + 'px');
       }
       computeSidebarOffset();
